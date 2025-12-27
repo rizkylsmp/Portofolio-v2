@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Light Mode Colors (default) */
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-surface-tertiary: #f3f4f6;
+  --color-border: #e5e7eb;
+  --color-border-light: #f3f4f6;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-tertiary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-accent: #111827;
+  --color-accent-hover: #1f2937;
+}
+
+/* Dark Mode Overrides */
+.dark {
+  --color-surface: #111827;
+  --color-surface-secondary: #1f2937;
+  --color-surface-tertiary: #374151;
+  --color-border: #374151;
+  --color-border-light: #1f2937;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-tertiary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --color-accent: #f9fafb;
+  --color-accent-hover: #e5e7eb;
+}
