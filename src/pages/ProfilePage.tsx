@@ -8,18 +8,8 @@ import {
   FaGithub,
   FaInstagram,
 } from "react-icons/fa";
-// import CV from "../assets/doc/CV_Rizky Lanang Sadana Mulyono Putra.pdf";
 
 const ProfilePage = () => {
-  // const onButtonClick = () => {
-  //   const pdfUrl = CV;
-  //   const link = document.createElement("a");
-  //   link.href = pdfUrl;
-  //   link.download = "CV_Rizky Lanang Sadana Mulyono Putra.pdf";
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   document.body.removeChild(link);
-  // };
 
   const Media = [
     { icon: <IoIosMail />, href: "mailto:rizkylsmp@gmail.com" },
