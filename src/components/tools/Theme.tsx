@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import  { useState } from "react";
 
 // ICONS
 import { CiLight, CiDark } from "react-icons/ci";
