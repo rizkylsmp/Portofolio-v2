@@ -73,7 +73,7 @@ const SkillsPage = () => {
 
   return (
     <div
-      className="border-t-2 dark:border-color-4 py-28 px-10 md:px-20 overflow-hidden"
+      className="border-t dark:border-color-4 py-28 px-10 md:px-20 overflow-hidden border-border"
       data-aos="fade-up"
     >
       <div className="flex flex-col gap-8 items-center text-accent px-8">

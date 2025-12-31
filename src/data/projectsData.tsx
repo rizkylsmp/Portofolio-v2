@@ -1,6 +1,6 @@
 import React from "react";
 import { FaReact, FaNodeJs, FaUnity } from "react-icons/fa";
-import { SiExpress, SiTailwindcss, SiMysql, SiSharp } from "react-icons/si";
+import { SiExpress, SiTailwindcss, SiMysql, SiSharp, SiPostgresql } from "react-icons/si";
 import { RiNextjsLine } from "react-icons/ri";
 import { getImagesFromFolder } from "../utils/imageMapper";
 
@@ -51,8 +51,12 @@ const createWebsiteCards = (): ProjectCard[] => [
     images: sinkronaImages,
     alt: "Sinkrona",
     judul: "Sinkrona",
-    ket: "Game yang menggabungkan elemen puzzle dan strategi dengan visual yang menawan dan gameplay yang adiktif.",
-    icon: [<FaUnity key="unity" />, <SiSharp key="sharp" />],
+    ket: "Sistem Informasi Manajemen Aset Tanah yang mengintegrasikan pengelolaan aset tanah dari berbagai instansi pemerintah (Dinas Aset Pemkot, BPN, Dinas Tata Ruang) menjadi satu platform terpadu.",
+    icon: [<FaReact key="react" />,
+      <FaNodeJs key="nodejs" />,
+      <SiExpress key="express" />,
+      <SiTailwindcss key="tailwind" />,
+      <SiPostgresql key="postgresql" />,],
     link: "#",
     aos: "fade-left",
   },

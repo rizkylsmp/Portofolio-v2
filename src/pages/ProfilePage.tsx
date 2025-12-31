@@ -41,11 +41,12 @@ const ProfilePage = () => {
                 a Junior <b>Full Stack Developer</b>
               </div>
               <p className="text-justify relative">
-                Lulusan D-III Teknologi Informasi di Politeknik Negeri Malang
-                dengan ketertarikan mengembangkan aplikasi berbasis website
-                serta berpengalaman sabagai IT support. Pekerja keras dan mampu
-                bekerja dibawah tekanan serta memiliki rasa ingin tahu yang
-                tinggi.
+                Lulusan D-III Teknologi Informasi Politeknik Negeri Malang dengan fokus pada pengembangan antarmuka website modern
+                dan responsif menggunakan React.js dan Next.js. Berpengalaman membangun tampilan web berbasis komponen,
+                mengintegrasikan UI dengan API, serta terbiasa menggunakan Tailwind CSS untuk desain yang konsisten dan efisien.
+                Memiliki pengalaman kerja sebagai Staff IT yang membentuk kemampuan problem-solving, komunikasi teknis, dan kerja di
+                bawah tekanan. Passionate dalam continuous learning, problem-solving, dan delivering high-quality code dengan fokus
+                pada user experience dan performa aplikasi
               </p>
             </div>
             <div className="flex flex-col gap-3">

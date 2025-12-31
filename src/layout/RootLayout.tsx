@@ -4,6 +4,8 @@ import ProfilePage from '../pages/ProfilePage'
 import SkillPage from '../pages/SkillsPage'
 import ExperiencePage from '../pages/ExperiencePage'
 import ProjectsPage from "../pages/ProjectsPage"
+import CertificatePage from '../pages/CertificatePage'
+import ContactPage from '../pages/ContactPage'
 
 const RootLayout = () => {
 
@@ -23,6 +25,12 @@ const RootLayout = () => {
             </section>
             <section id="projects">
                 <ProjectsPage />
+            </section>
+            <section id="certificates">
+                <CertificatePage />
+            </section>
+            <section id="contact">
+                <ContactPage />
             </section>
         </main>
     </div>

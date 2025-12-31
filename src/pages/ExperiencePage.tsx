@@ -3,7 +3,7 @@ import RPL_Icon from "../assets/images/icons/raindo.png";
 
 const ExperiencePage = () => {
   return (
-    <div className="border-t-2 border-accent/30 text-accent md:px-36 p-10 py-24">
+    <div className="border-t border-border text-accent md:px-36 p-10 py-24">
       <div
         data-aos="fade-up"
         className="font-bold md:text-5xl text-4xl p-10 text-center mb-12"
@@ -23,7 +23,7 @@ const ExperiencePage = () => {
           </div>
 
           {/* Image Section */}
-          <div className="lg:w-1/4 w-full flex-shrink-0">
+          <div className="lg:w-1/4 w-full shrink-0">
             <img
               src={RPL1}
               alt="Working - Raindo Putra Lestari"
