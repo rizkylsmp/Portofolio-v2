@@ -2,6 +2,9 @@ import React from "react";
 
 const SkillsPage = () => {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  const [loadedImages, setLoadedImages] = React.useState<Set<number>>(
+    new Set()
+  );
 
   const Images = [
     {
@@ -71,6 +74,10 @@ const SkillsPage = () => {
     },
   ];
 
+  const handleImageLoad = (index: number) => {
+    setLoadedImages((prev) => new Set(prev).add(index));
+  };
+
   return (
     <div
       className="border-t dark:border-color-4 py-28 px-10 md:px-20 overflow-hidden border-border"
@@ -78,7 +85,7 @@ const SkillsPage = () => {
     >
       <div className="flex flex-col gap-8 items-center text-accent px-8">
         <div className="text-center font-bold md:text-5xl text-4xl">SKILLS</div>
-        
+
         {/* Scrolling Container */}
         <div className="w-full flex items-center">
           <style>{`
@@ -110,13 +117,22 @@ const SkillsPage = () => {
                   onMouseLeave={() => setHoveredIndex(null)}
                 >
                   <div className="relative">
+                    {!loadedImages.has(idx % Images.length) && (
+                      <div className="lg:h-24 lg:w-24 md:h-20 md:w-20 h-16 w-16 bg-gray-200 animate-pulse rounded-lg"></div>
+                    )}
                     <img
                       src={img.src}
                       alt={img.alt}
-                      className="lg:h-24 lg:w-24 md:h-20 md:w-20 h-16 w-16 object-contain transition-all duration-300 group-hover:scale-110"
+                      className={`lg:h-24 lg:w-24 md:h-20 md:w-20 h-16 w-16 object-contain transition-all duration-300 group-hover:scale-110 ${
+                        loadedImages.has(idx % Images.length)
+                          ? "opacity-100"
+                          : "opacity-0"
+                      }`}
+                      onLoad={() => handleImageLoad(idx % Images.length)}
+                      loading="lazy"
                     />
                   </div>
-                  
+
                   <div className="flex items-center absolute -top-3 justify-center">
                     <span
                       className={`bg-surface px-2 py-1 rounded-2xl text-xs font-semibold text-accent text-center transition-all duration-300 ${

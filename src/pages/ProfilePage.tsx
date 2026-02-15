@@ -10,7 +10,6 @@ import {
 } from "react-icons/fa";
 
 const ProfilePage = () => {
-
   const Media = [
     { icon: <IoIosMail />, href: "mailto:rizkylsmp@gmail.com" },
     { icon: <FaWhatsapp />, href: "https://wa.link/379fob" },
@@ -20,63 +19,68 @@ const ProfilePage = () => {
   ];
 
   return (
-      <div className="md:px-44 p-20">
-        <div className="flex md:flex-col lg:flex-row flex-col gap-16 py-20 justify-center items-center">
-          <div className="" data-aos="fade-right">
-            <img
-              src={ProfilePict}
-              alt="..."
-              className="min-h-80 max-w-56 object-cover rounded-full hover:scale-105 hover:shadow-xl duration-300"
-            />
-          </div>
-          <div
-            className="flex flex-col md:text-md lg:text-lg gap-5"
-            data-aos="fade-left"
-          >
-            <div className="flex flex-col gap-2 text-accent transition-all duration-300">
-              <div>
-                <BubbleText />
-              </div>
-              <div className="">
-                a Junior <b>Full Stack Developer</b>
-              </div>
-              <p className="text-justify relative">
-                Lulusan D-III Teknologi Informasi Politeknik Negeri Malang dengan fokus pada pengembangan antarmuka website modern
-                dan responsif menggunakan React.js dan Next.js. Berpengalaman membangun tampilan web berbasis komponen,
-                mengintegrasikan UI dengan API, serta terbiasa menggunakan Tailwind CSS untuk desain yang konsisten dan efisien.
-                Memiliki pengalaman kerja sebagai Staff IT yang membentuk kemampuan problem-solving, komunikasi teknis, dan kerja di
-                bawah tekanan. Passionate dalam continuous learning, problem-solving, dan delivering high-quality code dengan fokus
-                pada user experience dan performa aplikasi
-              </p>
+    <div className="md:px-44 p-20">
+      <div className="flex md:flex-col lg:flex-row flex-col gap-16 py-20 justify-center items-center">
+        <div className="" data-aos="fade-right">
+          <img
+            src={ProfilePict}
+            alt="Rizky Lanang Sadana Mulyono Putra - Full Stack Developer"
+            className="min-h-80 max-w-56 object-cover rounded-full hover:scale-105 hover:shadow-xl duration-300"
+          />
+        </div>
+        <div
+          className="flex flex-col md:text-md lg:text-lg gap-5"
+          data-aos="fade-left"
+        >
+          <div className="flex flex-col gap-2 text-accent transition-all duration-300">
+            <div>
+              <BubbleText />
             </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                {Media.map((media) => (
-                  <a
-                    href={media.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full bg-accent text-surface dark:bg-color-1 dark:text-color-4 px-2 py-2"
-                  >
-                    {media.icon}
-                  </a>
-                ))}
-              </div>
-              <span className="pt-2">
+            <div className="">
+              a Junior <b>Full Stack Developer</b>
+            </div>
+            <p className="text-justify relative">
+              Lulusan D-III Teknologi Informasi Politeknik Negeri Malang dengan
+              fokus pada pengembangan antarmuka website modern dan responsif
+              menggunakan React.js dan Next.js. Berpengalaman membangun tampilan
+              web berbasis komponen, mengintegrasikan UI dengan API, serta
+              terbiasa menggunakan Tailwind CSS untuk desain yang konsisten dan
+              efisien. Memiliki pengalaman kerja sebagai Staff IT yang membentuk
+              kemampuan problem-solving, komunikasi teknis, dan kerja di bawah
+              tekanan. Passionate dalam continuous learning, problem-solving,
+              dan delivering high-quality code dengan fokus pada user experience
+              dan performa aplikasi
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              {Media.map((media, index) => (
                 <a
-                  href="https://www.cake.me/rizkylsmp"
+                  key={index}
+                  href={media.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-1 w-fit bg-accent rounded-xl border-color-2 relative h-12 overflow-hidden text-surface"
+                  className="rounded-full bg-accent text-surface dark:bg-color-1 dark:text-color-4 px-2 py-2"
                 >
-                  Resume
-                  <FaExternalLinkAlt />
+                  {media.icon}
                 </a>
-              </span>
+              ))}
             </div>
+            <span className="pt-2">
+              <a
+                href="https://www.cake.me/rizkylsmp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-1 w-fit bg-accent rounded-xl border-color-2 relative h-12 overflow-hidden text-surface"
+              >
+                Resume
+                <FaExternalLinkAlt />
+              </a>
+            </span>
           </div>
         </div>
       </div>
+    </div>
   );
 };
 
