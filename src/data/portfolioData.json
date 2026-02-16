@@ -1,0 +1,299 @@
+{
+  "profile": {
+    "name": "RIZKY LANANG SADANA MULYONO PUTRA",
+    "position": "a Junior <b>Full Stack Developer</b>",
+    "description": "Lulusan D-III Teknologi Informasi Politeknik Negeri Malang dengan fokus pada pengembangan antarmuka website modern dan responsif menggunakan React.js dan Next.js. Berpengalaman membangun tampilan web berbasis komponen, mengintegrasikan UI dengan API, serta terbiasa menggunakan Tailwind CSS untuk desain yang konsisten dan efisien. Memiliki pengalaman kerja sebagai Staff IT yang membentuk kemampuan problem-solving, komunikasi teknis, dan kerja di bawah tekanan. Passionate dalam continuous learning, problem-solving, dan delivering high-quality code dengan fokus pada user experience dan performa aplikasi",
+    "photo": "/images/profile/profile2.jpg",
+    "socialMedia": [
+      { "type": "email", "url": "mailto:rizkylsmp@gmail.com" },
+      { "type": "whatsapp", "url": "https://wa.link/379fob" },
+      { "type": "linkedin", "url": "https://www.linkedin.com/in/rizkylsmp/" },
+      { "type": "github", "url": "https://github.com/rizkylsmp" },
+      { "type": "instagram", "url": "https://instagram.com/rizky.ls" }
+    ],
+    "resumeUrl": "https://www.cake.me/rizkylsmp",
+    "resumeLabel": "Resume"
+  },
+  "skills": [
+    { "name": "HTML", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg", "alt": "html", "order": 0 },
+    { "name": "CSS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg", "alt": "css", "order": 1 },
+    { "name": "Javascript", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg", "alt": "javascript", "order": 2 },
+    { "name": "ReactJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg", "alt": "reactjs", "order": 3 },
+    { "name": "NextJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nextjs/nextjs-original.svg", "alt": "nextjs", "order": 4 },
+    { "name": "NodeJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original-wordmark.svg", "alt": "NodeJS", "order": 5 },
+    { "name": "ExpressJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/express/express-original.svg", "alt": "ExpressJS", "order": 6 },
+    { "name": "Tailwind CSS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/tailwindcss/tailwindcss-original.svg", "alt": "TailwindCSS", "order": 7 },
+    { "name": "Bootstrap", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/bootstrap/bootstrap-original.svg", "alt": "Bootstrap", "order": 8 },
+    { "name": "C#", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/csharp/csharp-original.svg", "alt": "C#", "order": 9 },
+    { "name": "MySQL", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mysql/mysql-original-wordmark.svg", "alt": "MySQL", "order": 10 },
+    { "name": "MongoDB", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mongodb/mongodb-original-wordmark.svg", "alt": "MongoDB", "order": 11 },
+    { "name": "Unity", "src": "https://cdn-icons-png.flaticon.com/512/5969/5969347.png", "alt": "unity", "order": 12 }
+  ],
+  "experiences": [
+    {
+      "company": "PT RAINDO PUTRA LESTARI",
+      "companyDescription": "Industrial Garments Company",
+      "position": "Staff IT",
+      "period": "Juli 2024 - Sekarang",
+      "location": "Pasuruan, Jawa Timur",
+      "description": "Bertanggung jawab dalam mengembangkan solusi teknologi informasi untuk mendukung operasional perusahaan. Membangun sistem web-based dan mengelola infrastruktur IT.",
+      "companyLogo": "/images/icons/raindo.png",
+      "image": "/images/experience/rpl_work1.jpeg",
+      "responsibilities": [
+        {
+          "icon": "code",
+          "title": "Website Development",
+          "description": "Mengembangkan dan memelihara website perusahaan menggunakan teknologi web modern"
+        },
+        {
+          "icon": "database",
+          "title": "Data Management",
+          "description": "Mengelola database dan sistem informasi untuk mendukung operasional perusahaan"
+        },
+        {
+          "icon": "network",
+          "title": "IT Infrastructure",
+          "description": "Menangani troubleshooting dan maintenance infrastruktur IT perusahaan"
+        }
+      ],
+      "skills": ["Web Development", "Database Management", "IT Support", "System Administration", "Problem Solving"],
+      "badge": "⭐ Professional Experience"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Sinkrona",
+      "description": "Sistem Informasi Manajemen Aset Tanah yang mengintegrasikan pengelolaan aset tanah dari berbagai instansi pemerintah (Dinas Aset Pemkot, BPN, Dinas Tata Ruang) menjadi satu platform terpadu.",
+      "images": [
+        "/images/projects/sinkrona/sinkrona001.png",
+        "/images/projects/sinkrona/sinkrona002.png",
+        "/images/projects/sinkrona/sinkrona003.png",
+        "/images/projects/sinkrona/sinkrona004.png",
+        "/images/projects/sinkrona/sinkrona005.png",
+        "/images/projects/sinkrona/sinkrona006.png",
+        "/images/projects/sinkrona/sinkrona007.png",
+        "/images/projects/sinkrona/sinkrona008.png",
+        "/images/projects/sinkrona/sinkrona009.png",
+        "/images/projects/sinkrona/sinkrona010.png"
+      ],
+      "techIcons": ["react", "nodejs", "express", "tailwind", "postgresql"],
+      "link": "#",
+      "buttonText": "View",
+      "category": "website",
+      "aos": "fade-left"
+    },
+    {
+      "title": "Pencatatan Butik RenWa",
+      "description": "Website untuk merubah metode pencatatan yang ada pada toko Butik RenWa Kab. Jember menjadi digital guna mempermudah pencatatan agar lebih tepat dan flexibel.",
+      "images": [
+        "/images/projects/renwa/renwa001.png",
+        "/images/projects/renwa/renwa002.png",
+        "/images/projects/renwa/renwa003.png"
+      ],
+      "techIcons": ["react", "nodejs", "express", "tailwind", "mysql"],
+      "link": "https://butikrenwa.xyz/",
+      "buttonText": "LIVE VIEW",
+      "category": "website",
+      "aos": "fade-right"
+    },
+    {
+      "title": "Pelatihan Sertifikasi Kompetensi",
+      "description": "Website yang dikerjakan saat pelatihan sertifikasi kompetensi. Aplikasi ini merupakan website CRUD pengarsipan surat.",
+      "images": [
+        "/images/projects/Website_Sertikom_1.png",
+        "/images/projects/Website_Sertikom_2.png",
+        "/images/projects/Website_Sertikom_3.png"
+      ],
+      "techIcons": ["react", "nodejs", "express", "tailwind", "mysql"],
+      "link": "https://github.com/rizkylsmp/Sertikom",
+      "buttonText": "SOURCE CODE",
+      "category": "website",
+      "aos": "fade-left"
+    },
+    {
+      "title": "Daftar Nama Pegawai",
+      "description": "Website CRUD daftar nama pegawai.",
+      "images": ["/images/projects/Website_DaftarPegawai_1.png"],
+      "techIcons": ["react", "nodejs", "express", "tailwind", "mysql"],
+      "link": "https://github.com/rizkylsmp/DaftarPegawai",
+      "buttonText": "SOURCE CODE",
+      "category": "website",
+      "aos": "fade-right"
+    },
+    {
+      "title": "Kychi Story",
+      "description": "Website novel dan manga menggunakan data rest api open source.",
+      "images": ["/images/projects/Website_KychiStory.jpg"],
+      "techIcons": ["nextjs", "tailwind"],
+      "link": "https://kychistory.my.id",
+      "buttonText": "LIVE VIEW",
+      "category": "website",
+      "aos": "fade-left"
+    },
+    {
+      "title": "Paket Express: Tantang Waktu",
+      "description": "Game 3D simulasi menjadi seorang kurir yang mengantar paket ke tujuan dengan waktu yang sudah ditentukan.",
+      "images": [
+        "/images/projects/Game_PaketExpress_1.png",
+        "/images/projects/Game_PaketExpress_2.jpeg"
+      ],
+      "techIcons": ["unity", "csharp"],
+      "link": "https://rockmoon.itch.io/paket-express-tantang-waktu",
+      "buttonText": "View",
+      "category": "game",
+      "aos": "fade-right"
+    },
+    {
+      "title": "Battle of Pong 2D",
+      "description": "Game ping pong yang dapat dimainkan secara multiplayer atau singleplayer dalam 2D.",
+      "images": [
+        "/images/projects/Game_Pong2D_1.png",
+        "/images/projects/Game_Pong2D_2.png",
+        "/images/projects/Game_Pong2D_3.png"
+      ],
+      "techIcons": ["unity", "csharp"],
+      "link": "https://rizkylsmp.itch.io/battle-of-pong-2d",
+      "buttonText": "View",
+      "category": "game",
+      "aos": "fade-left"
+    },
+    {
+      "title": "Side Scrolling 2D",
+      "description": "Game basic side scrolling / platformer yang dapat dimainkan dalam 2D dengan mengkonfigurasi animasi, tilemap, dan mekanik game seperti movement, health system, dan attack.",
+      "images": [
+        "/images/projects/Game_SS2D_1.png",
+        "/images/projects/Game_SS2D_2.png",
+        "/images/projects/Game_SS2D_3.png"
+      ],
+      "techIcons": ["unity", "csharp"],
+      "link": "#",
+      "buttonText": "View",
+      "category": "game",
+      "aos": "fade-right"
+    }
+  ],
+  "certificates": [
+    {
+      "title": "BNSP",
+      "description": "Sertifikat Kompetensi Profesional Badan Nasional Sertifikasi Profesi",
+      "images": ["/images/certificate/s_bnsp/certif_bnsp.jpg"],
+      "count": 1,
+      "color": "from-blue-500 to-blue-600",
+      "category": "professional",
+      "icon": "certificate"
+    },
+    {
+      "title": "Alibaba Cloud",
+      "description": "Cloud Computing & Infrastructure Certification",
+      "images": [
+        "/images/certificate/s_alibaba/Sertifikat ACA.jpg",
+        "/images/certificate/s_alibaba/Sertifikat Alibaba.jpg"
+      ],
+      "count": 2,
+      "color": "from-orange-500 to-red-500",
+      "category": "cloud",
+      "icon": "university"
+    },
+    {
+      "title": "MSIB Batch 5",
+      "description": "Magang dan Studi Independen Bersertifikat Program",
+      "images": [
+        "/images/certificate/s_msib/Sertifikat MSIB 5_1.jpg",
+        "/images/certificate/s_msib/Sertifikat MSIB 5_2.jpg"
+      ],
+      "count": 2,
+      "color": "from-green-500 to-green-600",
+      "category": "education",
+      "icon": "award"
+    },
+    {
+      "title": "ICEI - Game Development",
+      "description": "Game Development with Unity Engine Certification Series",
+      "images": [
+        "/images/certificate/s_icei/Sertifikat ICEI Introduction to Unity Game Engine.jpg",
+        "/images/certificate/s_icei/Sertifikat ICEI Pong 2D.jpg",
+        "/images/certificate/s_icei/Sertifikat ICEI Top-Down Shooter 2D.jpg",
+        "/images/certificate/s_icei/Sertifikat ICEI Side Scrolling Platformer 2D.jpg",
+        "/images/certificate/s_icei/Sertifikat ICEI FPS 3D.jpg",
+        "/images/certificate/s_icei/Sertifikat ICEI TPS 3D.jpg",
+        "/images/certificate/s_icei/Sertifikat ICEI Game Monetization.jpg"
+      ],
+      "count": 7,
+      "color": "from-purple-500 to-pink-500",
+      "category": "gamedev",
+      "icon": "gamepad"
+    },
+    {
+      "title": "Codepolitan - Web Development",
+      "description": "Complete Web Development Learning Path",
+      "images": [
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan HTML_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan CSS_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript Konsep OOP_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript DOM_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript Asynchronous_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan AJAX & Web API_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan Bootstrap_1.jpg",
+        "/images/certificate/s_codepolitan/Sertifikat Codepolitan ReactJS.jpg",
+        "/images/certificate/s_codepolitan/s-cp-tw.jpg"
+      ],
+      "count": 10,
+      "color": "from-indigo-500 to-purple-600",
+      "category": "webdev",
+      "icon": "code"
+    }
+  ],
+  "contact": {
+    "heading": "LET'S CREATE SOMETHING AMAZING",
+    "subheading": "Ready to bring your ideas to life? Let's discuss your project and explore how we can work together.",
+    "profileImage": "/images/profile/Footer.jpg",
+    "profileName": "Rizky Lanang S.M.P",
+    "profileTitle": "Full Stack Developer",
+    "profileTags": ["React", "Next.js", "Node.js"],
+    "footerNote": "🚀 Looking forward to collaborating with you! I typically respond within 24 hours.",
+    "contactEmail": "rizkylsmp@gmail.com",
+    "links": [
+      {
+        "type": "instagram",
+        "label": "Instagram",
+        "href": "https://www.instagram.com/rizky.ls",
+        "color": "from-pink-500 to-purple-600",
+        "description": "Follow my journey & updates",
+        "category": "social"
+      },
+      {
+        "type": "linkedin",
+        "label": "LinkedIn",
+        "href": "https://www.linkedin.com/in/rizkylsmp/",
+        "color": "from-blue-500 to-blue-700",
+        "description": "Professional profile & experience",
+        "category": "social"
+      },
+      {
+        "type": "github",
+        "label": "GitHub",
+        "href": "https://github.com/rizkylsmp",
+        "color": "from-gray-600 to-gray-900",
+        "description": "Check out my projects & code",
+        "category": "social"
+      },
+      {
+        "type": "email",
+        "label": "Email",
+        "href": "mailto:rizkylsmp@gmail.com",
+        "color": "from-red-500 to-orange-600",
+        "description": "Send me an email directly",
+        "category": "contact"
+      },
+      {
+        "type": "whatsapp",
+        "label": "WhatsApp",
+        "href": "https://wa.link/379fob",
+        "color": "from-green-500 to-green-600",
+        "description": "Quick message via WhatsApp",
+        "category": "contact"
+      }
+    ]
+  }
+}

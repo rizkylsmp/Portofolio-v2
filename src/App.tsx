@@ -13,8 +13,11 @@ import React from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { useInitializeData } from "./hooks/useInitializeData";
 
 function App() {
+  const dataReady = useInitializeData();
+
   React.useEffect(() => {
     try {
       AOS.init({
@@ -28,6 +31,14 @@ function App() {
       console.warn("AOS initialization failed:", error);
     }
   }, []);
+
+  if (!dataReady) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-accent/30 border-t-accent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>

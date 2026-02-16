@@ -1,5 +1,4 @@
 import React from "react";
-import IMG from "../assets/images/profile/Footer.jpg";
 import {
   FaInstagram,
   FaLinkedin,
@@ -10,15 +9,25 @@ import {
   FaPaperPlane,
   FaUser,
   FaEnvelopeOpen,
+  FaTwitter,
+  FaYoutube,
+  FaTiktok,
+  FaGlobe,
 } from "react-icons/fa";
+import { getContactConfig } from "../services/storageService";
+import type { ContactConfig, ContactLink } from "../types/content";
 
-interface ContactLink {
-  icon: React.ReactNode;
-  label: string;
-  href: string;
-  color: string;
-  description: string;
-}
+const contactIconMap: Record<string, React.ReactNode> = {
+  email: <FaEnvelope />,
+  whatsapp: <FaWhatsapp />,
+  linkedin: <FaLinkedin />,
+  github: <FaGithub />,
+  instagram: <FaInstagram />,
+  twitter: <FaTwitter />,
+  youtube: <FaYoutube />,
+  tiktok: <FaTiktok />,
+  website: <FaGlobe />,
+};
 
 interface FormData {
   name: string;
@@ -28,6 +37,7 @@ interface FormData {
 }
 
 const ContactPage = () => {
+  const [config, setConfig] = React.useState<ContactConfig | null>(null);
   const [formData, setFormData] = React.useState<FormData>({
     name: "",
     email: "",
@@ -39,46 +49,14 @@ const ContactPage = () => {
     "idle" | "success" | "error"
   >("idle");
 
-  const socialLinks: ContactLink[] = [
-    {
-      icon: <FaInstagram />,
-      label: "Instagram",
-      href: "https://www.instagram.com/rizky.ls",
-      color: "from-pink-500 to-purple-600",
-      description: "Follow my journey & updates",
-    },
-    {
-      icon: <FaLinkedin />,
-      label: "LinkedIn",
-      href: "https://www.linkedin.com/in/rizkylsmp/",
-      color: "from-blue-500 to-blue-700",
-      description: "Professional profile & experience",
-    },
-    {
-      icon: <FaGithub />,
-      label: "GitHub",
-      href: "https://github.com/rizkylsmp",
-      color: "from-gray-600 to-gray-900",
-      description: "Check out my projects & code",
-    },
-  ];
+  React.useEffect(() => {
+    setConfig(getContactConfig());
+  }, []);
 
-  const contactMethods: ContactLink[] = [
-    {
-      icon: <FaEnvelope />,
-      label: "Email",
-      href: "mailto:rizkylsmp@gmail.com",
-      color: "from-red-500 to-orange-600",
-      description: "Send me an email directly",
-    },
-    {
-      icon: <FaWhatsapp />,
-      label: "WhatsApp",
-      href: "https://wa.link/379fob",
-      color: "from-green-500 to-green-600",
-      description: "Quick message via WhatsApp",
-    },
-  ];
+  if (!config) return null;
+
+  const socialLinks = config.links.filter((l: ContactLink) => l.category === "social");
+  const contactMethods = config.links.filter((l: ContactLink) => l.category === "contact");
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -95,11 +73,9 @@ const ContactPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Create mailto link as fallback
-      const mailtoLink = `mailto:rizkylsmp@gmail.com?subject=${encodeURIComponent(
+      const mailtoLink = `mailto:${config.contactEmail}?subject=${encodeURIComponent(
         formData.subject
       )}&body=${encodeURIComponent(
         `Name: ${formData.name}\nEmail: ${formData.email}\n\nMessage:\n${formData.message}`
@@ -108,7 +84,7 @@ const ContactPage = () => {
 
       setSubmitStatus("success");
       setFormData({ name: "", email: "", subject: "", message: "" });
-    } catch (error) {
+    } catch {
       setSubmitStatus("error");
     } finally {
       setIsSubmitting(false);
@@ -128,11 +104,10 @@ const ContactPage = () => {
         {/* Header */}
         <div data-aos="fade-up" className="text-center mb-16">
           <h2 className="font-bold md:text-5xl text-4xl mb-4 drop-shadow-lg">
-            LET'S CREATE SOMETHING AMAZING
+            {config.heading}
           </h2>
           <p className="text-surface/90 text-lg max-w-2xl mx-auto leading-relaxed">
-            Ready to bring your ideas to life? Let's discuss your project and
-            explore how we can work together.
+            {config.subheading}
           </p>
         </div>
 
@@ -248,27 +223,23 @@ const ContactPage = () => {
                 <div className="relative group">
                   <div className="absolute inset-0 bg-gradient-to-r from-surface via-transparent to-surface rounded-full blur-xl opacity-75 group-hover:opacity-100 transition duration-300"></div>
                   <img
-                    src={IMG}
-                    alt="Rizky Lanang Sadana Mulyono Putra"
+                    src={config.profileImage}
+                    alt={config.profileName}
                     className="relative h-32 w-32 rounded-full object-cover border-4 border-surface/50 group-hover:border-surface transition-all duration-300 shadow-xl"
                   />
                 </div>
 
                 <div>
                   <h3 className="text-2xl font-bold mb-2">
-                    Rizky Lanang S.M.P
+                    {config.profileName}
                   </h3>
-                  <p className="text-surface/80 mb-4">Full Stack Developer</p>
+                  <p className="text-surface/80 mb-4">{config.profileTitle}</p>
                   <div className="flex gap-2 justify-center flex-wrap">
-                    <span className="px-3 py-1 bg-surface/20 rounded-full text-sm">
-                      React
-                    </span>
-                    <span className="px-3 py-1 bg-surface/20 rounded-full text-sm">
-                      Next.js
-                    </span>
-                    <span className="px-3 py-1 bg-surface/20 rounded-full text-sm">
-                      Node.js
-                    </span>
+                    {config.profileTags.map((tag, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-surface/20 rounded-full text-sm">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -292,7 +263,7 @@ const ContactPage = () => {
                   <div
                     className={`p-3 rounded-full bg-gradient-to-r ${method.color} text-white group-hover:scale-110 transition-transform duration-300`}
                   >
-                    {method.icon}
+                    {contactIconMap[method.type] || <FaGlobe />}
                   </div>
                   <div className="flex-1">
                     <div className="font-semibold">{method.label}</div>
@@ -324,7 +295,7 @@ const ContactPage = () => {
                     <div
                       className={`p-3 rounded-full bg-gradient-to-r ${link.color} text-white group-hover:scale-110 transition-transform duration-300`}
                     >
-                      {link.icon}
+                      {contactIconMap[link.type] || <FaGlobe />}
                     </div>
                     <div className="flex-1">
                       <div className="font-semibold">{link.label}</div>
@@ -347,8 +318,7 @@ const ContactPage = () => {
           className="text-center mt-16 pt-8 border-t border-surface/20"
         >
           <p className="text-surface/70">
-            🚀 Looking forward to collaborating with you! I typically respond
-            within 24 hours.
+            {config.footerNote}
           </p>
         </div>
       </div>

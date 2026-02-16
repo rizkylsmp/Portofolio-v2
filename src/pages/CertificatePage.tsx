@@ -1,45 +1,13 @@
 import { useState } from "react";
-import SertifBNSP from "../assets/images/certificate/s_bnsp/certif_bnsp.jpg";
-import SertifACA from "../assets/images/certificate/s_alibaba/Sertifikat ACA.jpg";
-import SertifAlibaba from "../assets/images/certificate/s_alibaba/Sertifikat Alibaba.jpg";
-import SertifMSIB from "../assets/images/certificate/s_msib/Sertifikat MSIB 5_1.jpg";
-import SertifMSIB2 from "../assets/images/certificate/s_msib/Sertifikat MSIB 5_2.jpg";
-import SertifICEI1 from "../assets/images/certificate/s_icei/Sertifikat ICEI Introduction to Unity Game Engine.jpg";
-import SertifICEI2 from "../assets/images/certificate/s_icei/Sertifikat ICEI Pong 2D.jpg";
-import SertifICEI3 from "../assets/images/certificate/s_icei/Sertifikat ICEI Top-Down Shooter 2D.jpg";
-import SertifICEI4 from "../assets/images/certificate/s_icei/Sertifikat ICEI Side Scrolling Platformer 2D.jpg";
-import SertifICEI5 from "../assets/images/certificate/s_icei/Sertifikat ICEI FPS 3D.jpg";
-import SertifICEI6 from "../assets/images/certificate/s_icei/Sertifikat ICEI TPS 3D.jpg";
-import SertifICEI7 from "../assets/images/certificate/s_icei/Sertifikat ICEI Game Monetization.jpg";
-import SertifCP1 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan HTML_1.jpg";
-import SertifCP2 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan CSS_1.jpg";
-import SertifCP3 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript_1.jpg";
-import SertifCP4 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript Konsep OOP_1.jpg";
-import SertifCP5 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript DOM_1.jpg";
-import SertifCP6 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan Javascript Asynchronous_1.jpg";
-import SertifCP7 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan AJAX & Web API_1.jpg";
-import SertifCP8 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan Bootstrap_1.jpg";
-import SertifCP9 from "../assets/images/certificate/s_codepolitan/Sertifikat Codepolitan ReactJS.jpg";
-import SertifCP10 from "../assets/images/certificate/s_codepolitan/s-cp-tw.jpg";
+import { getCertificates } from "../services/storageService";
+import { renderIcon } from "../utils/iconRenderer";
 import {
   BiChevronDown,
   BiX,
   BiZoomIn,
   BiAward,
-  BiCode,
-  BiGame,
 } from "react-icons/bi";
 import { FaUniversity, FaCertificate, FaCode, FaGamepad } from "react-icons/fa";
-
-interface CertificateGroup {
-  title: string;
-  icon: React.ReactNode;
-  images: string[];
-  count: number;
-  color: string;
-  description: string;
-  category: string;
-}
 
 const Certificate = () => {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
@@ -49,73 +17,10 @@ const Certificate = () => {
     {}
   );
 
-  const certificateGroups: CertificateGroup[] = [
-    {
-      title: "BNSP",
-      icon: <FaCertificate />,
-      images: [SertifBNSP],
-      count: 1,
-      color: "from-blue-500 to-blue-600",
-      description:
-        "Sertifikat Kompetensi Profesional Badan Nasional Sertifikasi Profesi",
-      category: "professional",
-    },
-    {
-      title: "Alibaba Cloud",
-      icon: <FaUniversity />,
-      images: [SertifACA, SertifAlibaba],
-      count: 2,
-      color: "from-orange-500 to-red-500",
-      description: "Cloud Computing & Infrastructure Certification",
-      category: "cloud",
-    },
-    {
-      title: "MSIB Batch 5",
-      icon: <BiAward />,
-      images: [SertifMSIB, SertifMSIB2],
-      count: 2,
-      color: "from-green-500 to-green-600",
-      description: "Magang dan Studi Independen Bersertifikat Program",
-      category: "education",
-    },
-    {
-      title: "ICEI - Game Development",
-      icon: <FaGamepad />,
-      images: [
-        SertifICEI1,
-        SertifICEI2,
-        SertifICEI3,
-        SertifICEI4,
-        SertifICEI5,
-        SertifICEI6,
-        SertifICEI7,
-      ],
-      count: 7,
-      color: "from-purple-500 to-pink-500",
-      description: "Game Development with Unity Engine Certification Series",
-      category: "gamedev",
-    },
-    {
-      title: "Codepolitan - Web Development",
-      icon: <FaCode />,
-      images: [
-        SertifCP1,
-        SertifCP2,
-        SertifCP3,
-        SertifCP4,
-        SertifCP5,
-        SertifCP6,
-        SertifCP7,
-        SertifCP8,
-        SertifCP9,
-        SertifCP10,
-      ],
-      count: 10,
-      color: "from-indigo-500 to-purple-600",
-      description: "Complete Web Development Learning Path",
-      category: "webdev",
-    },
-  ];
+  const certificateGroups = getCertificates().map((cert) => ({
+    ...cert,
+    iconNode: renderIcon(cert.icon),
+  }));
 
   const filterCategories = [
     { id: "all", label: "All Certificates", icon: <BiAward /> },
@@ -226,7 +131,7 @@ const Certificate = () => {
                   <div
                     className={`p-4 rounded-2xl bg-gradient-to-r ${group.color} text-white text-2xl shadow-lg group-hover:scale-110 transition-transform duration-300`}
                   >
-                    {group.icon}
+                    {group.iconNode}
                   </div>
 
                   <div className="flex-1">

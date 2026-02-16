@@ -1,10 +1,15 @@
 import React from "react";
 import { MdArrowForward, MdChevronLeft, MdChevronRight } from "react-icons/md";
-import { WebsiteCards, GameCards } from "../data/projectsData.tsx";
+import { getProjectsByCategory } from "../services/storageService";
+import { renderIcons } from "../utils/iconRenderer";
+import type { Project } from "../types/content";
 
 const ProjectsPage = () => {
   const [isSwitch, setIsSwitch] = React.useState(false);
   const [activeImageIndex, setActiveImageIndex] = React.useState<{ [key: string]: number }>({});
+
+  const websiteCards = getProjectsByCategory("website");
+  const gameCards = getProjectsByCategory("game");
 
   const handlePrevImage = (cardIndex: number, totalImages: number) => {
     const currentIndex = activeImageIndex[cardIndex] || 0;
@@ -22,7 +27,7 @@ const ProjectsPage = () => {
     });
   };
 
-  const renderProjectCard = (card: typeof WebsiteCards[0], cardIndex: number) => {
+  const renderProjectCard = (card: Project, cardIndex: number) => {
     const currentImageIdx = activeImageIndex[cardIndex] || 0;
     const hasMultipleImages = card.images.length > 1;
 
@@ -37,7 +42,7 @@ const ProjectsPage = () => {
           <div className="absolute inset-0 flex items-center justify-center">
             <img
               src={card.images[currentImageIdx]}
-              alt={card.alt}
+              alt={card.title}
               className="h-full w-full object-cover transition-transform duration-500"
             />
           </div>
@@ -84,10 +89,10 @@ const ProjectsPage = () => {
         <div className="flex flex-col justify-between p-6 md:h-56 lg:h-48">
           <div className="space-y-3">
             <h3 className="text-xl font-bold text-text-primary transition-colors duration-300">
-              {card.judul}
+              {card.title}
             </h3>
             <p className="text-sm text-text-secondary line-clamp-3 leading-relaxed">
-              {card.ket}
+              {card.description}
             </p>
           </div>
 
@@ -95,7 +100,7 @@ const ProjectsPage = () => {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             {/* Tech Icons */}
             <div className="flex flex-wrap gap-3 text-lg text-text-primary">
-              {card.icon.map((icon, idx) => (
+              {renderIcons(card.techIcons).map((icon, idx) => (
                 <span
                   key={idx}
                   className="transition-all duration-300 hover:scale-125 hover:text-accent"
@@ -112,7 +117,7 @@ const ProjectsPage = () => {
               rel="noopener noreferrer"
               className="group/btn inline-flex items-center gap-2 rounded-xl border-2 border-color-accent bg-surface px-4 py-2 font-semibold text-accent transition-all duration-300 hover:gap-3 hover:bg-accent hover:text-surface"
             >
-              <span className="text-xs uppercase">{card.button || "View"}</span>
+              <span className="text-xs uppercase">{card.buttonText || "View"}</span>
               <MdArrowForward className="transition-transform duration-300 group-hover/btn:translate-x-1" />
             </a>
           </div>
@@ -160,11 +165,11 @@ const ProjectsPage = () => {
         {/* Projects Grid */}
         <div className="grid gap-8 overflow-hidden md:grid-cols-2 lg:gap-10">
           {!isSwitch &&
-            WebsiteCards.map((card, cardIndex) =>
+            websiteCards.map((card, cardIndex) =>
               renderProjectCard(card, cardIndex)
             )}
           {isSwitch &&
-            GameCards.map((card, cardIndex) =>
+            gameCards.map((card, cardIndex) =>
               renderProjectCard(card, cardIndex)
             )}
         </div>

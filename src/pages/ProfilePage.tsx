@@ -1,4 +1,4 @@
-import ProfilePict from "../assets/images/profile/profile2.jpg";
+import { useState, useEffect } from "react";
 import styles from "../assets/styles/bubble.module.css";
 import { IoIosMail } from "react-icons/io";
 import {
@@ -7,24 +7,42 @@ import {
   FaLinkedin,
   FaGithub,
   FaInstagram,
+  FaTwitter,
+  FaYoutube,
+  FaTiktok,
+  FaGlobe,
 } from "react-icons/fa";
+import { getProfile } from "../services/storageService";
+import type { Profile } from "../types/content";
+
+const socialMediaIconMap: Record<string, React.ReactNode> = {
+  email: <IoIosMail />,
+  whatsapp: <FaWhatsapp />,
+  linkedin: <FaLinkedin />,
+  github: <FaGithub />,
+  instagram: <FaInstagram />,
+  twitter: <FaTwitter />,
+  youtube: <FaYoutube />,
+  tiktok: <FaTiktok />,
+  website: <FaGlobe />,
+};
 
 const ProfilePage = () => {
-  const Media = [
-    { icon: <IoIosMail />, href: "mailto:rizkylsmp@gmail.com" },
-    { icon: <FaWhatsapp />, href: "https://wa.link/379fob" },
-    { icon: <FaLinkedin />, href: "https://www.linkedin.com/in/rizkylsmp/" },
-    { icon: <FaGithub />, href: "https://github.com/rizkylsmp" },
-    { icon: <FaInstagram />, href: "https://instagram.com/rizky.ls" },
-  ];
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    setProfile(getProfile());
+  }, []);
+
+  if (!profile) return null;
 
   return (
     <div className="md:px-44 p-20">
       <div className="flex md:flex-col lg:flex-row flex-col gap-16 py-20 justify-center items-center">
         <div className="" data-aos="fade-right">
           <img
-            src={ProfilePict}
-            alt="Rizky Lanang Sadana Mulyono Putra - Full Stack Developer"
+            src={profile.photo}
+            alt={`${profile.name} - ${profile.position.replace(/<[^>]*>/g, "")}`}
             className="min-h-80 max-w-56 object-cover rounded-full hover:scale-105 hover:shadow-xl duration-300"
           />
         </div>
@@ -34,49 +52,40 @@ const ProfilePage = () => {
         >
           <div className="flex flex-col gap-2 text-accent transition-all duration-300">
             <div>
-              <BubbleText />
+              <BubbleText text={profile.name} />
             </div>
-            <div className="">
-              a Junior <b>Full Stack Developer</b>
-            </div>
+            <div dangerouslySetInnerHTML={{ __html: profile.position }} />
             <p className="text-justify relative">
-              Lulusan D-III Teknologi Informasi Politeknik Negeri Malang dengan
-              fokus pada pengembangan antarmuka website modern dan responsif
-              menggunakan React.js dan Next.js. Berpengalaman membangun tampilan
-              web berbasis komponen, mengintegrasikan UI dengan API, serta
-              terbiasa menggunakan Tailwind CSS untuk desain yang konsisten dan
-              efisien. Memiliki pengalaman kerja sebagai Staff IT yang membentuk
-              kemampuan problem-solving, komunikasi teknis, dan kerja di bawah
-              tekanan. Passionate dalam continuous learning, problem-solving,
-              dan delivering high-quality code dengan fokus pada user experience
-              dan performa aplikasi
+              {profile.description}
             </p>
           </div>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
-              {Media.map((media, index) => (
+              {profile.socialMedia.map((sm, index) => (
                 <a
                   key={index}
-                  href={media.href}
+                  href={sm.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="rounded-full bg-accent text-surface dark:bg-color-1 dark:text-color-4 px-2 py-2"
                 >
-                  {media.icon}
+                  {socialMediaIconMap[sm.type] || <FaGlobe />}
                 </a>
               ))}
             </div>
-            <span className="pt-2">
-              <a
-                href="https://www.cake.me/rizkylsmp"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-1 w-fit bg-accent rounded-xl border-color-2 relative h-12 overflow-hidden text-surface"
-              >
-                Resume
-                <FaExternalLinkAlt />
-              </a>
-            </span>
+            {profile.resumeUrl && (
+              <span className="pt-2">
+                <a
+                  href={profile.resumeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-1 w-fit bg-accent rounded-xl border-color-2 relative h-12 overflow-hidden text-surface"
+                >
+                  {profile.resumeLabel || "Resume"}
+                  <FaExternalLinkAlt />
+                </a>
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -84,10 +93,10 @@ const ProfilePage = () => {
   );
 };
 
-const BubbleText = () => {
+const BubbleText = ({ text }: { text: string }) => {
   return (
     <h2 className="text-4xl font-bold">
-      {"RIZKY LANANG SADANA MULYONO PUTRA".split("").map((child, idx) => (
+      {text.split("").map((child, idx) => (
         <span className={styles.hoverText} key={idx}>
           {child}
         </span>

@@ -30,17 +30,13 @@ const Theme = () => {
   };
 
   return (
-    <div>
-      <button
-        onClick={toggleDarkMode}
-        className="flex gap-2 items-center px-3 py-3 rounded-full bg-accent-hover text-surface fixed right-10 bottom-10 z-50 duration-300 outline-none"
-      >
-        <div>{darkMode ? <CiDark size={20} /> : <CiLight size={20} />}</div>
-        <div className="md:block hidden">
-          {darkMode ? "Dark Mode" : "Light Mode"}
-        </div>
-      </button>
-    </div>
+    <button
+      onClick={toggleDarkMode}
+      className="fixed right-5 bottom-5 z-50 flex items-center justify-center w-12 h-12 rounded-full bg-accent text-surface shadow-lg hover:bg-accent-hover hover:scale-110 transition-all duration-300 cursor-pointer"
+      aria-label={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+    >
+      {darkMode ? <CiDark size={20} /> : <CiLight size={20} />}
+    </button>
   );
 };
 
