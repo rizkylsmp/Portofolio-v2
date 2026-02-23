@@ -137,6 +137,10 @@ const AdminPage = () => {
 
   const handleReset = () => {
     resetAllData();
+    notify("Perubahan yang belum disimpan telah di-undo.", "success");
+    setShowResetConfirm(false);
+    // Re-read data from the freshly reset store
+    setActiveTab(activeTab); // force re-render
     window.location.reload();
   };
 
@@ -191,10 +195,10 @@ const AdminPage = () => {
             />
             <button
               onClick={() => setShowResetConfirm(true)}
-              className="flex items-center gap-1 px-3 py-2 bg-red-500/80 hover:bg-red-500 rounded-lg text-sm transition-colors cursor-pointer"
-              title="Reset Data"
+              className="flex items-center gap-1 px-3 py-2 bg-amber-500/80 hover:bg-amber-500 rounded-lg text-sm transition-colors cursor-pointer"
+              title="Undo Unsaved Changes"
             >
-              <MdRestartAlt /> <span className="hidden sm:inline">Reset</span>
+              <MdRestartAlt /> <span className="hidden sm:inline">Undo</span>
             </button>
             <div className="w-px h-6 bg-surface/30 mx-1" />
             <button
@@ -378,10 +382,11 @@ const AdminPage = () => {
       {showResetConfirm && (
         <Modal onClose={() => setShowResetConfirm(false)}>
           <div className="text-center p-6">
-            <div className="text-red-500 text-5xl mb-4">🔄</div>
-            <h3 className="text-xl font-bold text-accent mb-2">Reset Semua Data?</h3>
+            <div className="text-amber-500 text-5xl mb-4">↩️</div>
+            <h3 className="text-xl font-bold text-accent mb-2">Undo Perubahan?</h3>
             <p className="text-text-secondary mb-6">
-              Semua data akan dihapus dan dikembalikan ke data default awal.
+              Semua perubahan yang belum tersimpan ke file akan dibatalkan.<br />
+              Data akan kembali ke kondisi terakhir yang tersimpan di <code className="text-xs bg-surface-secondary px-1 py-0.5 rounded">portfolioData.json</code>.
             </p>
             <div className="flex gap-3 justify-center">
               <button
@@ -392,9 +397,9 @@ const AdminPage = () => {
               </button>
               <button
                 onClick={handleReset}
-                className="px-5 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors cursor-pointer"
+                className="px-5 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors cursor-pointer"
               >
-                Reset
+                Undo
               </button>
             </div>
           </div>
@@ -1286,32 +1291,43 @@ function ProfileForm({
           )}
           <div className="space-y-3">
             {socialMedia.map((sm, idx) => (
-              <div key={idx} className="flex gap-2 items-center">
-                <select
-                  value={sm.type}
-                  onChange={(e) => updateSocialMedia(idx, "type", e.target.value)}
-                  className={selectClass + " w-36 flex-shrink-0"}
-                >
-                  {SOCIAL_MEDIA_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  value={sm.url}
-                  onChange={(e) => updateSocialMedia(idx, "url", e.target.value)}
-                  placeholder={sm.type === "email" ? "mailto:email@example.com" : "https://..."}
-                  className={inputClass + " flex-1"}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeSocialMedia(idx)}
-                  className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer flex-shrink-0"
-                >
-                  <MdRemoveCircle size={20} />
-                </button>
+              <div
+                key={idx}
+                className="flex flex-col sm:flex-row gap-2 p-3 bg-surface-secondary/50 rounded-xl border border-border/50"
+              >
+                <div className="flex gap-2 items-center">
+                  <span className="text-text-tertiary text-xs font-medium w-5 text-center flex-shrink-0">
+                    {idx + 1}
+                  </span>
+                  <select
+                    value={sm.type}
+                    onChange={(e) => updateSocialMedia(idx, "type", e.target.value)}
+                    className={selectClass + " w-full sm:w-36 flex-shrink-0"}
+                  >
+                    {SOCIAL_MEDIA_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2 items-center flex-1 pl-7 sm:pl-0">
+                  <input
+                    type="text"
+                    value={sm.url}
+                    onChange={(e) => updateSocialMedia(idx, "url", e.target.value)}
+                    placeholder={sm.type === "email" ? "mailto:email@example.com" : "https://..."}
+                    className={inputClass + " flex-1 min-w-0"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeSocialMedia(idx)}
+                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                    title="Hapus"
+                  >
+                    <MdRemoveCircle size={20} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

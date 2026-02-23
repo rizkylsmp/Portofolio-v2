@@ -5,29 +5,109 @@
     "description": "Lulusan D-III Teknologi Informasi Politeknik Negeri Malang dengan fokus pada pengembangan antarmuka website modern dan responsif menggunakan React.js dan Next.js. Berpengalaman membangun tampilan web berbasis komponen, mengintegrasikan UI dengan API, serta terbiasa menggunakan Tailwind CSS untuk desain yang konsisten dan efisien. Memiliki pengalaman kerja sebagai Staff IT yang membentuk kemampuan problem-solving, komunikasi teknis, dan kerja di bawah tekanan. Passionate dalam continuous learning, problem-solving, dan delivering high-quality code dengan fokus pada user experience dan performa aplikasi",
     "photo": "/images/profile/profile2.jpg",
     "socialMedia": [
-      { "type": "email", "url": "mailto:rizkylsmp@gmail.com" },
-      { "type": "whatsapp", "url": "https://wa.link/379fob" },
-      { "type": "linkedin", "url": "https://www.linkedin.com/in/rizkylsmp/" },
-      { "type": "github", "url": "https://github.com/rizkylsmp" },
-      { "type": "instagram", "url": "https://instagram.com/rizky.ls" }
+      {
+        "type": "email",
+        "url": "mailto:rizkylsmp@gmail.com"
+      },
+      {
+        "type": "whatsapp",
+        "url": "https://wa.link/379fob"
+      },
+      {
+        "type": "linkedin",
+        "url": "https://www.linkedin.com/in/rizkylsmp/"
+      },
+      {
+        "type": "github",
+        "url": "https://github.com/rizkylsmp"
+      },
+      {
+        "type": "instagram",
+        "url": "https://instagram.com/rizky.ls"
+      }
     ],
     "resumeUrl": "https://www.cake.me/rizkylsmp",
     "resumeLabel": "Resume"
   },
   "skills": [
-    { "name": "HTML", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg", "alt": "html", "order": 0 },
-    { "name": "CSS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg", "alt": "css", "order": 1 },
-    { "name": "Javascript", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg", "alt": "javascript", "order": 2 },
-    { "name": "ReactJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg", "alt": "reactjs", "order": 3 },
-    { "name": "NextJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nextjs/nextjs-original.svg", "alt": "nextjs", "order": 4 },
-    { "name": "NodeJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original-wordmark.svg", "alt": "NodeJS", "order": 5 },
-    { "name": "ExpressJS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/express/express-original.svg", "alt": "ExpressJS", "order": 6 },
-    { "name": "Tailwind CSS", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/tailwindcss/tailwindcss-original.svg", "alt": "TailwindCSS", "order": 7 },
-    { "name": "Bootstrap", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/bootstrap/bootstrap-original.svg", "alt": "Bootstrap", "order": 8 },
-    { "name": "C#", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/csharp/csharp-original.svg", "alt": "C#", "order": 9 },
-    { "name": "MySQL", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mysql/mysql-original-wordmark.svg", "alt": "MySQL", "order": 10 },
-    { "name": "MongoDB", "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mongodb/mongodb-original-wordmark.svg", "alt": "MongoDB", "order": 11 },
-    { "name": "Unity", "src": "https://cdn-icons-png.flaticon.com/512/5969/5969347.png", "alt": "unity", "order": 12 }
+    {
+      "name": "HTML",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg",
+      "alt": "html",
+      "order": 0
+    },
+    {
+      "name": "CSS",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg",
+      "alt": "css",
+      "order": 1
+    },
+    {
+      "name": "Javascript",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg",
+      "alt": "javascript",
+      "order": 2
+    },
+    {
+      "name": "ReactJS",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg",
+      "alt": "reactjs",
+      "order": 3
+    },
+    {
+      "name": "NextJS",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nextjs/nextjs-original.svg",
+      "alt": "nextjs",
+      "order": 4
+    },
+    {
+      "name": "NodeJS",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original-wordmark.svg",
+      "alt": "NodeJS",
+      "order": 5
+    },
+    {
+      "name": "ExpressJS",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/express/express-original.svg",
+      "alt": "ExpressJS",
+      "order": 6
+    },
+    {
+      "name": "Tailwind CSS",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/tailwindcss/tailwindcss-original.svg",
+      "alt": "TailwindCSS",
+      "order": 7
+    },
+    {
+      "name": "Bootstrap",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/bootstrap/bootstrap-original.svg",
+      "alt": "Bootstrap",
+      "order": 8
+    },
+    {
+      "name": "C#",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/csharp/csharp-original.svg",
+      "alt": "C#",
+      "order": 9
+    },
+    {
+      "name": "MySQL",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mysql/mysql-original-wordmark.svg",
+      "alt": "MySQL",
+      "order": 10
+    },
+    {
+      "name": "MongoDB",
+      "src": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mongodb/mongodb-original-wordmark.svg",
+      "alt": "MongoDB",
+      "order": 11
+    },
+    {
+      "name": "Unity",
+      "src": "https://cdn-icons-png.flaticon.com/512/5969/5969347.png",
+      "alt": "unity",
+      "order": 12
+    }
   ],
   "experiences": [
     {
@@ -56,7 +136,13 @@
           "description": "Menangani troubleshooting dan maintenance infrastruktur IT perusahaan"
         }
       ],
-      "skills": ["Web Development", "Database Management", "IT Support", "System Administration", "Problem Solving"],
+      "skills": [
+        "Web Development",
+        "Database Management",
+        "IT Support",
+        "System Administration",
+        "Problem Solving"
+      ],
       "badge": "⭐ Professional Experience"
     }
   ],
@@ -76,7 +162,13 @@
         "/images/projects/sinkrona/sinkrona009.png",
         "/images/projects/sinkrona/sinkrona010.png"
       ],
-      "techIcons": ["react", "nodejs", "express", "tailwind", "postgresql"],
+      "techIcons": [
+        "react",
+        "nodejs",
+        "express",
+        "tailwind",
+        "postgresql"
+      ],
       "link": "#",
       "buttonText": "View",
       "category": "website",
@@ -90,7 +182,13 @@
         "/images/projects/renwa/renwa002.png",
         "/images/projects/renwa/renwa003.png"
       ],
-      "techIcons": ["react", "nodejs", "express", "tailwind", "mysql"],
+      "techIcons": [
+        "react",
+        "nodejs",
+        "express",
+        "tailwind",
+        "mysql"
+      ],
       "link": "https://butikrenwa.xyz/",
       "buttonText": "LIVE VIEW",
       "category": "website",
@@ -104,7 +202,13 @@
         "/images/projects/Website_Sertikom_2.png",
         "/images/projects/Website_Sertikom_3.png"
       ],
-      "techIcons": ["react", "nodejs", "express", "tailwind", "mysql"],
+      "techIcons": [
+        "react",
+        "nodejs",
+        "express",
+        "tailwind",
+        "mysql"
+      ],
       "link": "https://github.com/rizkylsmp/Sertikom",
       "buttonText": "SOURCE CODE",
       "category": "website",
@@ -113,8 +217,16 @@
     {
       "title": "Daftar Nama Pegawai",
       "description": "Website CRUD daftar nama pegawai.",
-      "images": ["/images/projects/Website_DaftarPegawai_1.png"],
-      "techIcons": ["react", "nodejs", "express", "tailwind", "mysql"],
+      "images": [
+        "/images/projects/Website_DaftarPegawai_1.png"
+      ],
+      "techIcons": [
+        "react",
+        "nodejs",
+        "express",
+        "tailwind",
+        "mysql"
+      ],
       "link": "https://github.com/rizkylsmp/DaftarPegawai",
       "buttonText": "SOURCE CODE",
       "category": "website",
@@ -123,8 +235,13 @@
     {
       "title": "Kychi Story",
       "description": "Website novel dan manga menggunakan data rest api open source.",
-      "images": ["/images/projects/Website_KychiStory.jpg"],
-      "techIcons": ["nextjs", "tailwind"],
+      "images": [
+        "/images/projects/Website_KychiStory.jpg"
+      ],
+      "techIcons": [
+        "nextjs",
+        "tailwind"
+      ],
       "link": "https://kychistory.my.id",
       "buttonText": "LIVE VIEW",
       "category": "website",
@@ -137,7 +254,10 @@
         "/images/projects/Game_PaketExpress_1.png",
         "/images/projects/Game_PaketExpress_2.jpeg"
       ],
-      "techIcons": ["unity", "csharp"],
+      "techIcons": [
+        "unity",
+        "csharp"
+      ],
       "link": "https://rockmoon.itch.io/paket-express-tantang-waktu",
       "buttonText": "View",
       "category": "game",
@@ -151,7 +271,10 @@
         "/images/projects/Game_Pong2D_2.png",
         "/images/projects/Game_Pong2D_3.png"
       ],
-      "techIcons": ["unity", "csharp"],
+      "techIcons": [
+        "unity",
+        "csharp"
+      ],
       "link": "https://rizkylsmp.itch.io/battle-of-pong-2d",
       "buttonText": "View",
       "category": "game",
@@ -165,7 +288,10 @@
         "/images/projects/Game_SS2D_2.png",
         "/images/projects/Game_SS2D_3.png"
       ],
-      "techIcons": ["unity", "csharp"],
+      "techIcons": [
+        "unity",
+        "csharp"
+      ],
       "link": "#",
       "buttonText": "View",
       "category": "game",
@@ -176,7 +302,9 @@
     {
       "title": "BNSP",
       "description": "Sertifikat Kompetensi Profesional Badan Nasional Sertifikasi Profesi",
-      "images": ["/images/certificate/s_bnsp/certif_bnsp.jpg"],
+      "images": [
+        "/images/certificate/s_bnsp/certif_bnsp.jpg"
+      ],
       "count": 1,
       "color": "from-blue-500 to-blue-600",
       "category": "professional",
@@ -250,7 +378,11 @@
     "profileImage": "/images/profile/Footer.jpg",
     "profileName": "Rizky Lanang S.M.P",
     "profileTitle": "Full Stack Developer",
-    "profileTags": ["React", "Next.js", "Node.js"],
+    "profileTags": [
+      "React",
+      "Next.js",
+      "Node.js"
+    ],
     "footerNote": "🚀 Looking forward to collaborating with you! I typically respond within 24 hours.",
     "contactEmail": "rizkylsmp@gmail.com",
     "links": [

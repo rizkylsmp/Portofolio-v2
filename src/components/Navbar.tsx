@@ -1,6 +1,7 @@
 import React from "react";
 import { HiMoon } from "react-icons/hi";
 import { RxHamburgerMenu, RxCross2 } from "react-icons/rx";
+import { MdAdminPanelSettings } from "react-icons/md";
 
 const Navbar = () => {
   const Links = [
@@ -117,6 +118,18 @@ const Navbar = () => {
               </button>
             );
           })}
+
+          {/* Admin button — only visible in dev (localhost) */}
+          {import.meta.env.DEV && (
+            <a
+              href="/#/admin"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface/15 hover:bg-surface/25 text-surface/70 hover:text-surface transition-all duration-300 border border-surface/20 hover:border-surface/40"
+              title="Admin Panel (dev only)"
+            >
+              <MdAdminPanelSettings className="text-sm" />
+              Admin
+            </a>
+          )}
 
         </div>
       </nav>
