@@ -115,10 +115,15 @@ http://localhost:5174/admin
 
 Create two Vercel projects from this repository:
 
-- Frontend: leave **Root Directory** empty. The root `vercel.json` runs the
-  frontend workspace build and serves `frontend/dist`.
-- Backend: set **Root Directory** to `backend`. Do not set an Output Directory;
-  Vercel detects `backend/index.js` as the Express serverless entrypoint.
+- Frontend: leave **Root Directory** empty. The root `vercel.json` serves
+  `frontend/dist` and enables SPA deep links such as `/admin`.
+- Backend: set **Root Directory** to `backend`. Its `vercel.json` clears any
+  static Output Directory override and Vercel detects `index.js` as the Express
+  serverless entrypoint.
+
+Do not point both Vercel projects at the repository root. After changing the
+backend Root Directory, redeploy without the previous build cache so the
+backend project reads `backend/vercel.json` instead of the frontend config.
 
 Set `VITE_PORTFOLIO_API_URL` in the frontend project to the deployed backend
 origin. Set MySQL, Cloudinary, admin credentials, and `CORS_ORIGIN` only in the
