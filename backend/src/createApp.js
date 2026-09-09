@@ -8,7 +8,10 @@ import { portfolioRoutes } from "./routes/portfolioRoutes.js";
 import { uploadRoutes } from "./routes/uploadRoutes.js";
 
 export function createApp({ beforeRoutes } = {}) {
-  const app = express();
+  return configureApp(express(), { beforeRoutes });
+}
+
+export function configureApp(app, { beforeRoutes } = {}) {
 
   app.set("trust proxy", true);
   app.use(corsMiddleware);

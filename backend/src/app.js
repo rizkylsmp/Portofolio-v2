@@ -1,4 +1,5 @@
-import { createApp } from "./createApp.js";
+import express from "express";
+import { configureApp } from "./createApp.js";
 import { initializeDatabase } from "./db/init.js";
 
 let databaseInitialization;
@@ -23,6 +24,10 @@ async function initializeDatabaseMiddleware(_req, _res, next) {
   }
 }
 
-const serverlessApp = createApp({ beforeRoutes: initializeDatabaseMiddleware });
+const serverlessApp = express();
+
+configureApp(serverlessApp, {
+  beforeRoutes: initializeDatabaseMiddleware,
+});
 
 export default serverlessApp;
