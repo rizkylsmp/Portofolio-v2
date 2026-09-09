@@ -16,7 +16,7 @@ export function isCloudinaryConfigured() {
   );
 }
 
-export function uploadImageBuffer(buffer, target) {
+export function uploadImageBuffer(buffer, target, options = {}) {
   if (!isCloudinaryConfigured()) {
     throw new Error(
       "Cloudinary belum dikonfigurasi. Isi CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, dan CLOUDINARY_API_SECRET."
@@ -28,8 +28,10 @@ export function uploadImageBuffer(buffer, target) {
       {
         folder: `${config.cloudinary.folder}/${target}`,
         resource_type: "image",
-        unique_filename: true,
-        overwrite: false,
+        public_id: options.publicId,
+        unique_filename: !options.publicId,
+        overwrite: Boolean(options.publicId),
+        invalidate: Boolean(options.publicId),
       },
       (error, result) => {
         if (error || !result) {
@@ -50,4 +52,23 @@ export function uploadImageBuffer(buffer, target) {
 
     uploadStream.end(buffer);
   });
+}
+
+export async function getImageAsset(publicId) {
+  if (!isCloudinaryConfigured()) {
+    throw new Error("Cloudinary belum dikonfigurasi.");
+  }
+
+  const result = await cloudinary.api.resource(publicId, {
+    resource_type: "image",
+  });
+
+  return {
+    url: result.secure_url,
+    publicId: result.public_id,
+    width: result.width,
+    height: result.height,
+    format: result.format,
+    bytes: result.bytes,
+  };
 }

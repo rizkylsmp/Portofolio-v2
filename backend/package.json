@@ -10,6 +10,7 @@
     "lint": "eslint index.js src",
     "db:seed": "node src/scripts/seedPortfolio.js",
     "db:check": "node src/scripts/checkPortfolio.js",
+    "migrate:cloud": "node src/scripts/migratePortfolioToCloud.js",
     "pdf:generate": "node src/scripts/generatePortfolioPdf.js"
   },
   "dependencies": {

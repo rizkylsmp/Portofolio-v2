@@ -40,6 +40,8 @@ export async function initializePool() {
     database: config.db.name,
     waitForConnections: true,
     connectionLimit: config.db.connectionLimit,
+    maxIdle: config.db.connectionLimit,
+    idleTimeout: 10_000,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
     namedPlaceholders: true,

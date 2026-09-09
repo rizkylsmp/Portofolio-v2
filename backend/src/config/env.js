@@ -21,6 +21,11 @@ const isLocalDatabase = new Set(["localhost", "127.0.0.1", "::1"]).has(
 const isManagedDatabase =
   hasMysqlAddon || process.env.DB_MANAGED === "true" || !isLocalDatabase;
 const corsOrigin = (process.env.CORS_ORIGIN || "*").replace(/\/+$/, "");
+const cloudinaryUrl = parseCloudinaryUrl(process.env.CLOUDINARY_URL);
+const requestedConnectionLimit = Math.max(
+  1,
+  Number(process.env.DB_CONNECTION_LIMIT || 10)
+);
 
 export const config = {
   rootDir: ROOT_DIR,
@@ -36,9 +41,9 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD || "",
   adminPin: process.env.ADMIN_PIN || "",
   cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
-    apiKey: process.env.CLOUDINARY_API_KEY || "",
-    apiSecret: process.env.CLOUDINARY_API_SECRET || "",
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || cloudinaryUrl.cloudName,
+    apiKey: process.env.CLOUDINARY_API_KEY || cloudinaryUrl.apiKey,
+    apiSecret: process.env.CLOUDINARY_API_SECRET || cloudinaryUrl.apiSecret,
     folder: process.env.CLOUDINARY_FOLDER || "portfolio-v2",
   },
   db: {
@@ -48,7 +53,9 @@ export const config = {
     password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASSWORD || "",
     name: process.env.MYSQL_ADDON_DB || process.env.DB_NAME || "portfolio_v2",
     managed: isManagedDatabase,
-    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+    // Clever Cloud DEV databases allow very few user connections. Serializing
+    // queries is safer for multiple short-lived Vercel instances.
+    connectionLimit: hasMysqlAddon ? 1 : requestedConnectionLimit,
   },
   auth: {
     sessionTtlMs: 12 * 60 * 60 * 1000,
@@ -57,3 +64,22 @@ export const config = {
   },
   portfolioRowId: "main",
 };
+
+function parseCloudinaryUrl(value) {
+  if (!value) return { cloudName: "", apiKey: "", apiSecret: "" };
+
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "cloudinary:") {
+      return { cloudName: "", apiKey: "", apiSecret: "" };
+    }
+
+    return {
+      cloudName: parsed.hostname,
+      apiKey: decodeURIComponent(parsed.username),
+      apiSecret: decodeURIComponent(parsed.password),
+    };
+  } catch {
+    return { cloudName: "", apiKey: "", apiSecret: "" };
+  }
+}

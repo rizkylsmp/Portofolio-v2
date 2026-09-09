@@ -18,6 +18,7 @@
     "server": "npm run start --workspace backend",
     "db:seed": "npm run db:seed --workspace backend",
     "db:check": "npm run db:check --workspace backend",
+    "migrate:cloud": "npm run migrate:cloud --workspace backend",
     "pdf:generate": "npm run pdf:generate --workspace backend"
   },
   "devDependencies": {

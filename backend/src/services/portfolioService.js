@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import bundledPortfolioSeedData from "../seeds/portfolioData.json" with { type: "json" };
 import { config } from "../config/env.js";
 import { getPool } from "../db/pool.js";
 
@@ -74,8 +75,24 @@ async function readStoredPortfolioData() {
 }
 
 export async function readPortfolioSeedData() {
-  const raw = await fs.readFile(config.dataPath, "utf-8");
-  return JSON.parse(raw);
+  // Import the default seed statically so Vercel includes it in the function
+  // bundle. A custom PORTFOLIO_DATA_PATH remains supported for local setups.
+  if (!process.env.PORTFOLIO_DATA_PATH) {
+    return structuredClone(bundledPortfolioSeedData);
+  }
+
+  try {
+    const raw = await fs.readFile(config.dataPath, "utf-8");
+    return JSON.parse(raw);
+  } catch (error) {
+    // Vercel deployments may not preserve a custom relative filesystem path;
+    // fall back to the bundled seed rather than failing first-request startup.
+    if (error?.code === "ENOENT") {
+      return structuredClone(bundledPortfolioSeedData);
+    }
+
+    throw error;
+  }
 }
 
 export async function readInitialPortfolioData() {
