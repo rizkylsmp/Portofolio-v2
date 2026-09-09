@@ -1,0 +1,26 @@
+{
+  "name": "portfolio-backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "lint": "eslint src",
+    "db:seed": "node src/scripts/seedPortfolio.js",
+    "db:check": "node src/scripts/checkPortfolio.js",
+    "pdf:generate": "node src/scripts/generatePortfolioPdf.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "mysql2": "^3.22.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0"
+  }
+}

@@ -1,0 +1,217 @@
+// ==========================================
+// Auth Service - Local fallback + server mode
+// ==========================================
+
+import { apiClient, getApiErrorData } from "./apiClient";
+
+const KEYS = {
+  PASSWORD_HASH: "admin_pw_hash",
+  PIN_HASH: "admin_pin_hash",
+  SETUP_DONE: "admin_setup_done",
+  SESSION: "admin_session",
+  SESSION_MODE: "admin_session_mode",
+  FAIL_COUNT: "admin_fail_count",
+  LOCKOUT_UNTIL: "admin_lockout_until",
+} as const;
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 5 * 60 * 1000;
+const SESSION_TOKEN = () => crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+const SERVER_AUTH_MODE = import.meta.env.VITE_ADMIN_AUTH_MODE === "server";
+
+export function isServerAuthMode(): boolean {
+  return SERVER_AUTH_MODE;
+}
+
+export function getSessionToken(): string | null {
+  return sessionStorage.getItem(KEYS.SESSION);
+}
+
+// ---- Hashing ----
+
+async function sha256(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ---- Setup ----
+
+export function isSetupDone(): boolean {
+  if (SERVER_AUTH_MODE) return true;
+  return localStorage.getItem(KEYS.SETUP_DONE) === "true";
+}
+
+export async function setupCredentials(password: string, pin: string): Promise<void> {
+  if (SERVER_AUTH_MODE) {
+    throw new Error("Setup admin dilakukan melalui environment variable backend.");
+  }
+
+  const pwHash = await sha256(password);
+  const pinHash = await sha256(pin);
+  localStorage.setItem(KEYS.PASSWORD_HASH, pwHash);
+  localStorage.setItem(KEYS.PIN_HASH, pinHash);
+  localStorage.setItem(KEYS.SETUP_DONE, "true");
+}
+
+// ---- Lockout ----
+
+export function getLockoutInfo(): { locked: boolean; remainingMs: number } {
+  const until = Number(localStorage.getItem(KEYS.LOCKOUT_UNTIL) || "0");
+  if (!until) return { locked: false, remainingMs: 0 };
+  const remaining = until - Date.now();
+  if (remaining <= 0) {
+    localStorage.removeItem(KEYS.LOCKOUT_UNTIL);
+    localStorage.removeItem(KEYS.FAIL_COUNT);
+    return { locked: false, remainingMs: 0 };
+  }
+  return { locked: true, remainingMs: remaining };
+}
+
+function recordFailedAttempt(): { locked: boolean; attemptsLeft: number } {
+  const count = Number(localStorage.getItem(KEYS.FAIL_COUNT) || "0") + 1;
+  localStorage.setItem(KEYS.FAIL_COUNT, String(count));
+  if (count >= MAX_ATTEMPTS) {
+    localStorage.setItem(KEYS.LOCKOUT_UNTIL, String(Date.now() + LOCKOUT_DURATION_MS));
+    return { locked: true, attemptsLeft: 0 };
+  }
+  return { locked: false, attemptsLeft: MAX_ATTEMPTS - count };
+}
+
+function clearFailedAttempts(): void {
+  localStorage.removeItem(KEYS.FAIL_COUNT);
+  localStorage.removeItem(KEYS.LOCKOUT_UNTIL);
+}
+
+// ---- Authentication ----
+
+export async function verifyPassword(password: string): Promise<boolean> {
+  if (SERVER_AUTH_MODE) return false;
+  const storedHash = localStorage.getItem(KEYS.PASSWORD_HASH);
+  if (!storedHash) return false;
+  const inputHash = await sha256(password);
+  return inputHash === storedHash;
+}
+
+export async function verifyPin(pin: string): Promise<boolean> {
+  if (SERVER_AUTH_MODE) return false;
+  const storedHash = localStorage.getItem(KEYS.PIN_HASH);
+  if (!storedHash) return false;
+  const inputHash = await sha256(pin);
+  return inputHash === storedHash;
+}
+
+export async function login(
+  password: string,
+  pin: string
+): Promise<{ success: boolean; error?: string; attemptsLeft?: number }> {
+  if (SERVER_AUTH_MODE) {
+    try {
+      const { data } = await apiClient.post<{
+        token?: string;
+        expiresInMs?: number;
+      }>("/api/auth/login", { password, pin });
+
+      if (typeof data.token !== "string") {
+        return { success: false, error: "Response login tidak valid." };
+      }
+
+      clearFailedAttempts();
+      sessionStorage.setItem(KEYS.SESSION, data.token);
+      sessionStorage.setItem(KEYS.SESSION_MODE, "server");
+      return { success: true };
+    } catch (err) {
+      const data = getApiErrorData(err);
+
+      if (typeof data.retryAfterMs === "number") {
+        localStorage.setItem(KEYS.LOCKOUT_UNTIL, String(Date.now() + data.retryAfterMs));
+      }
+
+      return {
+        success: false,
+        error: typeof data.error === "string" ? data.error : "Backend admin tidak dapat dihubungi.",
+        attemptsLeft: typeof data.attemptsLeft === "number" ? data.attemptsLeft : undefined,
+      };
+    }
+  }
+
+  const lockout = getLockoutInfo();
+  if (lockout.locked) {
+    const mins = Math.ceil(lockout.remainingMs / 60000);
+    return { success: false, error: `Terlalu banyak percobaan. Coba lagi dalam ${mins} menit.` };
+  }
+
+  const pwOk = await verifyPassword(password);
+  const pinOk = await verifyPin(pin);
+
+  if (!pwOk || !pinOk) {
+    const result = recordFailedAttempt();
+    if (result.locked) {
+      return { success: false, error: "Terlalu banyak percobaan gagal. Akun terkunci selama 5 menit." };
+    }
+    return {
+      success: false,
+      error: "Password atau PIN salah.",
+      attemptsLeft: result.attemptsLeft,
+    };
+  }
+
+  clearFailedAttempts();
+  const token = SESSION_TOKEN();
+  sessionStorage.setItem(KEYS.SESSION, token);
+  sessionStorage.setItem(KEYS.SESSION_MODE, "local");
+  return { success: true };
+}
+
+// ---- Session ----
+
+export function isAuthenticated(): boolean {
+  const token = sessionStorage.getItem(KEYS.SESSION);
+  const mode = sessionStorage.getItem(KEYS.SESSION_MODE);
+  const expectedMode = SERVER_AUTH_MODE ? "server" : "local";
+  return !!token && mode === expectedMode;
+}
+
+export function logout(): void {
+  if (SERVER_AUTH_MODE) {
+    const token = getSessionToken();
+    if (token) {
+      apiClient.post("/api/auth/logout", undefined, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined);
+    }
+  }
+  sessionStorage.removeItem(KEYS.SESSION);
+  sessionStorage.removeItem(KEYS.SESSION_MODE);
+}
+
+// ---- Change credentials ----
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
+  if (SERVER_AUTH_MODE) return false;
+  const ok = await verifyPassword(currentPassword);
+  if (!ok) return false;
+  const hash = await sha256(newPassword);
+  localStorage.setItem(KEYS.PASSWORD_HASH, hash);
+  return true;
+}
+
+export async function changePin(currentPin: string, newPin: string): Promise<boolean> {
+  if (SERVER_AUTH_MODE) return false;
+  const ok = await verifyPin(currentPin);
+  if (!ok) return false;
+  const hash = await sha256(newPin);
+  localStorage.setItem(KEYS.PIN_HASH, hash);
+  return true;
+}
+
+// ---- Reset (nuclear option) ----
+
+export function resetAuth(): void {
+  Object.values(KEYS).forEach((key) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+}

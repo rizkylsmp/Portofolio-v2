@@ -11,6 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+!.env.example
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/backups/
+backend/src/backups/
+backend/tmp/
+backend/output/
+recovery/
 
 # Editor directories and files
 .vscode/*
