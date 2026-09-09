@@ -7,7 +7,7 @@ import path from "node:path";
 import "../config/env.js";
 
 const projectRoot = path.resolve(import.meta.dirname, "../..");
-const portfolioUrl = process.env.PORTFOLIO_PDF_URL || "http://localhost:5174/#/portfolio-pdf";
+const portfolioUrl = process.env.PORTFOLIO_PDF_URL || "http://localhost:5174/portfolio-pdf";
 const outputPath = path.resolve(
   projectRoot,
   process.env.PORTFOLIO_PDF_OUTPUT || "output/pdf/rizky-lanang-portfolio.pdf"

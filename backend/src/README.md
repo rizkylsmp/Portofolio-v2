@@ -4,7 +4,7 @@
 backend/
   package.json          # Dependensi dan perintah khusus backend
   eslint.config.js      # Pemeriksaan kode JavaScript backend
-  uploads/              # Penyimpanan upload lokal
+  uploads/              # Kompatibilitas upload lokal lama
   output/               # Hasil generator PDF
   src/
     index.js              # Entry point: init database, start Express
@@ -24,6 +24,7 @@ backend/
       portfolioRoutes.js  # Portfolio read/write endpoints
     services/
       authService.js      # Session, lockout, credential checks
+      cloudinaryService.js # Upload gambar ke Cloudinary
       portfolioService.js # Portfolio MySQL read/write
     seeds/
       portfolioData.json  # Initial seed for an empty MySQL database
@@ -60,4 +61,7 @@ npm run db:seed
 npm run db:check
 ```
 
-Images and documents should be stored outside MySQL, then referenced by URL in the portfolio JSON. Use `frontend/public/images` only for assets shipped with the app build. For uploaded/admin-managed files in production, use object storage such as S3-compatible storage, Cloudinary, Supabase Storage, or a persistent VPS upload directory.
+Images uploaded from the admin panel are stored in Cloudinary, then referenced
+by HTTPS URL in MySQL. Social media, resume, project, contact, and other external
+links are also stored in their corresponding MySQL tables. Use
+`frontend/public/images` only for assets shipped with the frontend build.

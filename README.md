@@ -8,7 +8,7 @@ Portfolio full-stack dengan frontend React + TypeScript + Vite dan backend Expre
 frontend/              # Aplikasi React, aset publik, dan konfigurasi Vite
 backend/
   src/                 # API Express, integrasi MySQL, seed, dan script
-  uploads/             # Gambar yang diunggah melalui panel admin
+  uploads/             # Kompatibilitas untuk URL upload lokal lama
   output/              # Hasil generator PDF
 package.json           # Perintah bersama dan konfigurasi npm workspaces
 .env.local             # Konfigurasi lokal frontend/kompatibilitas
@@ -57,6 +57,10 @@ ADMIN_PIN=123456
 PORT=3000
 PORTFOLIO_DATA_PATH=./backend/src/seeds/portfolioData.json
 UPLOAD_DIR=./backend/uploads
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+CLOUDINARY_FOLDER=portfolio-v2
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
@@ -69,8 +73,10 @@ DB_CONNECTION_LIMIT=10
 dari origin yang sama. Panggilan API frontend menggunakan Axios melalui
 `frontend/src/services/apiClient.ts`.
 
-Backend membuat database MySQL dan tabel portofolio secara otomatis ketika
-dijalankan. Untuk membuatnya secara manual, gunakan `backend/src/schema.sql`.
+Backend membuat database MySQL lokal dan tabel portofolio secara otomatis ketika
+dijalankan. Jika MySQL add-on Clever Cloud terhubung, backend langsung memakai
+`MYSQL_ADDON_*` yang disediakan platform tanpa mencoba membuat database baru.
+Untuk membuat tabel secara manual, gunakan `backend/src/schema.sql`.
 
 Jika tabel masih kosong, backend mengisi data awal dari
 `backend/src/seeds/portfolioData.json`.
@@ -91,14 +97,13 @@ The backend serves:
 - `POST /api/admin/uploads/experiences` for experience photo uploads
 - `POST /api/admin/uploads/certificates` for certificate image uploads
 - `PUT /api/admin/portfolio` dan `PATCH /api/admin/portfolio` untuk menyimpan perubahan admin
-- static uploaded files from `/uploads`
+- legacy static uploaded files from `/uploads`
 - static frontend files from `frontend/dist`
 
-Images uploaded from the admin panel are stored locally in `UPLOAD_DIR`
-(`./backend/uploads` secara default). Ini sesuai untuk pengembangan lokal atau VPS dengan
-persistent disk. For stateless deployments, use persistent object storage such
-as Cloudinary, S3, or another image hosting service before relying on uploads
-in production.
+Images uploaded from the admin panel are sent to Cloudinary. MySQL stores the
+returned HTTPS URL, while `UPLOAD_DIR` remains available only for legacy local
+URLs. Keep `CLOUDINARY_API_SECRET` on the backend and never expose it as a
+`VITE_*` variable.
 
 Open:
 

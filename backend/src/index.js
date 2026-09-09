@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { config } from "./config/env.js";
 import { initializeDatabase } from "./db/init.js";
 import { isCredentialConfigured } from "./services/authService.js";
+import { isCloudinaryConfigured } from "./services/cloudinaryService.js";
 
 function listenOnAvailablePort(app, preferredPort, maxAttempts = 20) {
   return new Promise((resolve, reject) => {
@@ -49,6 +50,11 @@ async function startServer() {
 
     if (!isCredentialConfigured()) {
       console.warn("[portfolio-backend] Set ADMIN_PASSWORD and ADMIN_PIN=6 digits before using /admin.");
+    }
+    if (!isCloudinaryConfigured()) {
+      console.warn(
+        "[portfolio-backend] Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET before uploading images."
+      );
     }
   }
 }
