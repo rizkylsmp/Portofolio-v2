@@ -1,4 +1,4 @@
-import { createApp } from "./app.js";
+import { createApp } from "./createApp.js";
 import { config } from "./config/env.js";
 import { initializeDatabase } from "./db/init.js";
 import { isCredentialConfigured } from "./services/authService.js";

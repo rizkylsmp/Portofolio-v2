@@ -8,7 +8,8 @@ backend/
   output/               # Hasil generator PDF
   src/
     index.js              # Entry point: init database, start Express
-    app.js                # Express app composition
+    app.js                # Vercel Express default export
+    createApp.js          # Shared Express app composition
     schema.sql            # Optional manual MySQL schema
     config/
       env.js              # Environment loading and normalized config
