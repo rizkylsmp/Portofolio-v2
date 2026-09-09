@@ -111,6 +111,19 @@ Open:
 http://localhost:5174/admin
 ```
 
+## Vercel Deployment
+
+Create two Vercel projects from this repository:
+
+- Frontend: leave **Root Directory** empty. The root `vercel.json` runs the
+  frontend workspace build and serves `frontend/dist`.
+- Backend: set **Root Directory** to `backend`. Do not set an Output Directory;
+  Vercel detects `backend/index.js` as the Express serverless entrypoint.
+
+Set `VITE_PORTFOLIO_API_URL` in the frontend project to the deployed backend
+origin. Set MySQL, Cloudinary, admin credentials, and `CORS_ORIGIN` only in the
+backend project.
+
 ## Version And Rollback
 
 Use Git tags for release markers:

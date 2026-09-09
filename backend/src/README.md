@@ -65,3 +65,7 @@ Images uploaded from the admin panel are stored in Cloudinary, then referenced
 by HTTPS URL in MySQL. Social media, resume, project, contact, and other external
 links are also stored in their corresponding MySQL tables. Use
 `frontend/public/images` only for assets shipped with the frontend build.
+
+For Vercel, configure this folder (`backend`) as the project's Root Directory.
+The root-level `index.js` exports the Express serverless handler; leave Output
+Directory unset. The local development server continues to use `src/index.js`.

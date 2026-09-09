@@ -7,10 +7,11 @@ import { authRoutes } from "./routes/authRoutes.js";
 import { portfolioRoutes } from "./routes/portfolioRoutes.js";
 import { uploadRoutes } from "./routes/uploadRoutes.js";
 
-export function createApp() {
+export function createApp({ beforeRoutes } = {}) {
   const app = express();
 
   app.set("trust proxy", true);
+  if (beforeRoutes) app.use(beforeRoutes);
   app.use(corsMiddleware);
   app.use(express.json({ limit: "2mb" }));
 
