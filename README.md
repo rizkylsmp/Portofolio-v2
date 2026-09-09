@@ -75,7 +75,9 @@ dari origin yang sama. Panggilan API frontend menggunakan Axios melalui
 
 Backend membuat database MySQL lokal dan tabel portofolio secara otomatis ketika
 dijalankan. Jika MySQL add-on Clever Cloud terhubung, backend langsung memakai
-`MYSQL_ADDON_*` yang disediakan platform tanpa mencoba membuat database baru.
+`MYSQL_ADDON_*` tanpa mencoba membuat database baru. Kredensial add-on tersebut
+memiliki prioritas lebih tinggi daripada `DB_*`. Untuk database remote lain,
+gunakan `DB_MANAGED=true` agar backend tidak mencoba membuat database baru.
 Untuk membuat tabel secara manual, gunakan `backend/src/schema.sql`.
 
 Jika tabel masih kosong, backend mengisi data awal dari
