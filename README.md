@@ -83,6 +83,39 @@ Untuk membuat tabel secara manual, gunakan `backend/src/schema.sql`.
 Jika tabel masih kosong, backend mengisi data awal dari
 `backend/src/seeds/portfolioData.json`.
 
+## Playground dari Naki Code
+
+Playground mengambil seluruh portofolio publik Naki Code melalui
+`GET /api/playground` pada BE portofolio. BE membaca `/api/projects` dengan
+pagination agar proyek setelah urutan ke-30 juga tampil. Judul, deskripsi,
+kategori, link website, cover, urutan, dan seluruh foto mengikuti Naki Code.
+Filter kategori terbentuk dari data yang tersedia.
+
+Default sumbernya `https://naki-api.vercel.app`. Untuk mengganti sumber, atur
+variabel **BE portofolio** di `backend/.env` atau environment Vercel backend:
+
+```env
+NAKI_API_URL=https://naki-api.vercel.app
+```
+
+Untuk memakai BE Naki Code lokal di `D:\PROJECTS\NAKI CODE\WEBSITE\backend`,
+jalankan aplikasi Naki Code lalu ganti nilainya menjadi `http://localhost:3001`
+(sesuaikan port yang dipakai). Gunakan origin saja, tanpa `/api`. Restart BE
+portofolio setelah mengganti environment. Koneksi server-ke-server ini tidak
+memerlukan perubahan CORS maupun token admin Naki Code.
+
+Playground memuat data saat dibuka dan memeriksa pembaruan setiap 60 detik saat
+tab terlihat, termasuk ketika kembali ke tab yang sudah lama tidak aktif.
+API Naki Code dapat memakai cache hingga 60 detik, sehingga pembaruan tidak
+selalu muncul seketika. Saat gagal memuat, tersedia tombol coba lagi; data yang
+sudah tampil tetap dipertahankan selama pembaruan gagal. Hasil kosong yang valid
+tetap ditampilkan sebagai kosong.
+
+Integrasi hanya membaca data publik dan tidak menyalin atau mengganti data
+database portofolio. Pengelolaan proyek Playground dilakukan melalui admin
+Naki Code. Menu Projects di admin portofolio dan data proyek PDF masih memakai
+penyimpanan portofolio yang sudah ada.
+
 ## Build And Run
 
 ```bash

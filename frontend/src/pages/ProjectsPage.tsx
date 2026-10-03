@@ -1,38 +1,35 @@
 import React from "react";
 import { BiX, BiZoomIn } from "react-icons/bi";
-import { MdArrowForward, MdChevronLeft, MdChevronRight } from "react-icons/md";
+import { MdArrowForward, MdChevronLeft, MdChevronRight, MdRefresh } from "react-icons/md";
 import { PiDesktopBold, PiGameControllerBold, PiGridFourBold } from "react-icons/pi";
-import { getProjects } from "../services/storageService";
-import { renderIcons } from "../utils/iconRenderer";
-import type { Project } from "../types/content";
+import { usePlaygroundProjects, type PlaygroundProject } from "../hooks/usePlaygroundProjects";
 
-type CategoryFilter = "all" | Project["category"];
 type GridColumns = 3 | 4 | 5;
 
 type PreviewState = {
-  project: Project;
+  project: PlaygroundProject;
   imageIndex: number;
 };
 
-const filters: Array<{
-  value: CategoryFilter;
-  label: string;
-  icon: React.ReactNode;
-}> = [
-  { value: "all", label: "All", icon: <PiGridFourBold /> },
-  { value: "website", label: "Website", icon: <PiDesktopBold /> },
-  { value: "game", label: "Game", icon: <PiGameControllerBold /> },
-];
-
 const ProjectsPage = () => {
-  const [filter, setFilter] = React.useState<CategoryFilter>("all");
+  const [filter, setFilter] = React.useState<string | null>(null);
   const [gridColumns, setGridColumns] = React.useState<GridColumns>(3);
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
   const [cardImageIndexes, setCardImageIndexes] = React.useState<Record<string, number>>({});
-  const projects = getProjects();
-  const visibleProjects = filter === "all"
+  const { projects, loading, error, retry } = usePlaygroundProjects();
+  const categories = [...new Set(projects.map((project) => project.category))];
+  const filters = [
+    { value: null, label: "All", icon: <PiGridFourBold /> },
+    ...categories.map((category) => ({
+      value: category,
+      label: category,
+      icon: /game/i.test(category) ? <PiGameControllerBold /> : <PiDesktopBold />,
+    })),
+  ];
+  const activeFilter = filter && categories.includes(filter) ? filter : null;
+  const visibleProjects = activeFilter === null
     ? projects
-    : projects.filter((project) => project.category === filter);
+    : projects.filter((project) => project.category === activeFilter);
   const gridClass = {
     3: "lg:grid-cols-3",
     4: "lg:grid-cols-3 xl:grid-cols-4",
@@ -105,11 +102,11 @@ const ProjectsPage = () => {
                 <div className="flex flex-wrap justify-start gap-2" role="group" aria-label="Filter kategori playground">
                   {filters.map((item) => (
                     <button
-                      key={item.value}
+                      key={item.value === null ? "all" : `category-${item.value}`}
                       type="button"
                       onClick={() => setFilter(item.value)}
-                      aria-pressed={filter === item.value}
-                      className={`inline-flex min-h-11 items-center gap-2 border px-3 py-2 font-mono text-[0.66rem] uppercase transition-colors duration-200 ${filter === item.value ? "border-accent bg-accent text-surface" : "border-border bg-surface text-text-primary hover:border-accent hover:bg-accent hover:text-surface"}`}
+                      aria-pressed={activeFilter === item.value}
+                      className={`inline-flex min-h-11 items-center gap-2 border px-3 py-2 font-mono text-[0.66rem] uppercase transition-colors duration-200 ${activeFilter === item.value ? "border-accent bg-accent text-surface" : "border-border bg-surface text-text-primary hover:border-accent hover:bg-accent hover:text-surface"}`}
                     >
                       {item.icon}
                       {item.label}
@@ -139,9 +136,23 @@ const ProjectsPage = () => {
           </div>
         </header>
 
-        <div className={`grid grid-cols-1 items-start gap-x-4 gap-y-16 sm:grid-cols-2 lg:gap-x-8 lg:gap-y-20 ${gridClass}`} aria-live="polite">
+        {error && (
+          <div role="alert" className="mb-6 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
+            <p>{error}</p>
+            <button type="button" onClick={retry} disabled={loading} className="inline-flex min-h-11 items-center gap-2 border border-border px-3 hover:border-accent disabled:opacity-50">
+              <MdRefresh aria-hidden="true" /> Coba lagi
+            </button>
+          </div>
+        )}
+
+        {loading && projects.length === 0 && (
+          <p role="status" className="py-24 text-center text-sm text-text-secondary">Memuat proyek...</p>
+        )}
+
+        <div className={`grid grid-cols-1 items-start gap-x-4 gap-y-16 sm:grid-cols-2 lg:gap-x-8 lg:gap-y-20 ${gridClass}`} aria-live="polite" aria-busy={loading}>
           {visibleProjects.map((project, index) => {
             const coverImage = project.images[0];
+            const activeImageIndex = Math.min(cardImageIndexes[project.id] ?? 0, Math.max(project.images.length - 1, 0));
             const hasLink = Boolean(project.link && project.link !== "#" && project.link !== "-");
 
             return (
@@ -159,14 +170,14 @@ const ProjectsPage = () => {
                 <button
                   type="button"
                   className="group relative block aspect-[4/3] w-full cursor-zoom-in overflow-hidden border border-border bg-surface-tertiary disabled:cursor-default"
-                  onClick={() => coverImage && setPreview({ project, imageIndex: cardImageIndexes[project.id] ?? 0 })}
+                  onClick={() => coverImage && setPreview({ project, imageIndex: activeImageIndex })}
                   disabled={!coverImage}
                   aria-label={coverImage ? `Lihat galeri ${project.title}` : `${project.title} tidak memiliki gambar`}
                 >
                   {coverImage ? (
                     <img
-                      src={project.images[cardImageIndexes[project.id] ?? 0] || coverImage}
-                      alt={`${project.title} ${(cardImageIndexes[project.id] ?? 0) + 1}`}
+                      src={project.images[activeImageIndex]}
+                      alt={`${project.title} ${activeImageIndex + 1}`}
                       loading="lazy"
                       className="h-full w-full object-cover saturate-[0.78] transition-[filter,opacity] duration-300 group-hover:saturate-100"
                     />
@@ -219,7 +230,7 @@ const ProjectsPage = () => {
                       </span>
                       <span className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
                         {project.images.map((_, imageIndex) => (
-                          <span key={imageIndex} className={`h-1.5 w-1.5 rounded-full ${imageIndex === (cardImageIndexes[project.id] ?? 0) ? "bg-white" : "bg-white/50"}`} />
+                          <span key={imageIndex} className={`h-1.5 w-1.5 rounded-full ${imageIndex === activeImageIndex ? "bg-white" : "bg-white/50"}`} />
                         ))}
                       </span>
                     </>
@@ -233,23 +244,18 @@ const ProjectsPage = () => {
                   </div>
                   {hasLink && (
                     <a className="mt-3 inline-flex min-h-11 min-w-max items-center gap-2 border-b border-accent font-mono text-[0.66rem] font-bold uppercase hover:[&_svg]:translate-x-1" href={project.link} target="_blank" rel="noopener noreferrer" aria-label={`Buka ${project.title} di tab baru`}>
-                      {project.buttonText || "Visit project"}
+                      Visit project
                       <MdArrowForward />
                     </a>
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-3 font-mono text-[0.95rem] text-text-tertiary" aria-label={`Teknologi ${project.title}`}>
-                  {renderIcons(project.techIcons).map((icon, iconIndex) => (
-                    <span key={iconIndex}>{icon}</span>
-                  ))}
-                </div>
               </article>
             );
           })}
         </div>
 
-        {visibleProjects.length === 0 && (
+        {!loading && !error && visibleProjects.length === 0 && (
           <p className="py-24 text-center text-sm text-text-secondary">Belum ada karya pada kategori ini.</p>
         )}
       </div>
