@@ -37,7 +37,6 @@ export const config = {
     process.env.PORTFOLIO_DATA_PATH || "backend/src/seeds/portfolioData.json"
   ),
   port: Number(process.env.PORT || 3000),
-  nakiApiUrl: (process.env.NAKI_API_URL || "https://naki-api.vercel.app").replace(/\/+$/, ""),
   corsOrigin: corsOrigin || "*",
   adminPassword: process.env.ADMIN_PASSWORD || "",
   adminPin: process.env.ADMIN_PIN || "",

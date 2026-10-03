@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchNakiProjects, mapNakiProject } from "./playgroundService.js";
+import { fetchNakiProjects, mapNakiProject } from "./nakiProjects.ts";
 
 const baseUrl = "https://naki.example.test";
 const project = (id, overrides = {}) => ({
@@ -116,4 +116,18 @@ test("passes one abort signal through all upstream requests", async () => {
       options.signal.throwIfAborted();
     },
   }), { name: "AbortError" });
+});
+
+test("reads the public API directly without cookies or authorization headers", async () => {
+  const result = await fetchNakiProjects({
+    baseUrl,
+    fetchImpl: async (url, options) => {
+      assert.equal(url.origin, baseUrl);
+      assert.equal(url.pathname, "/api/projects");
+      assert.equal(options.credentials, "omit");
+      assert.deepEqual(options.headers, { Accept: "application/json" });
+      return page(1, [project(1)]);
+    },
+  });
+  assert.equal(result.length, 1);
 });

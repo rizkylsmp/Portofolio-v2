@@ -5,7 +5,6 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler, notFoundApiHandler } from "./middleware/errorHandler.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { portfolioRoutes } from "./routes/portfolioRoutes.js";
-import { playgroundRoutes } from "./routes/playgroundRoutes.js";
 import { uploadRoutes } from "./routes/uploadRoutes.js";
 
 export function createApp({ beforeRoutes } = {}) {
@@ -17,7 +16,6 @@ export function configureApp(app, { beforeRoutes } = {}) {
   app.set("trust proxy", true);
   app.use(corsMiddleware);
   app.use(express.json({ limit: "2mb" }));
-  app.use("/api/playground", playgroundRoutes);
   if (beforeRoutes) app.use(beforeRoutes);
 
   app.use("/api/auth", authRoutes);

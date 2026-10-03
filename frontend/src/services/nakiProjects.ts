@@ -1,6 +1,13 @@
-import { config } from "../config/env.js";
+export interface PlaygroundProject {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  images: string[];
+  link: string;
+}
 
-function publicUrl(value, baseUrl, allowUploadPath = false) {
+function publicUrl(value: unknown, baseUrl: string | URL, allowUploadPath = false): string {
   if (typeof value !== "string") return "";
   const source = value.trim();
   if (!/^https?:\/\//i.test(source) && !(allowUploadPath && source.startsWith("/uploads/"))) {
@@ -15,17 +22,19 @@ function publicUrl(value, baseUrl, allowUploadPath = false) {
   }
 }
 
-export function mapNakiProject(project, baseUrl) {
-  if (!project || !Number.isSafeInteger(project.id) || project.id <= 0 ||
+export function mapNakiProject(value: unknown, baseUrl: string | URL): PlaygroundProject {
+  if (!value || typeof value !== "object") throw new Error("Invalid Naki Code project.");
+  const project = value as Record<string, unknown>;
+  if (typeof project.id !== "number" || !Number.isSafeInteger(project.id) || project.id <= 0 ||
       typeof project.title !== "string" || !project.title.trim()) {
     throw new Error("Invalid Naki Code project.");
   }
 
-  const sourceImages = Array.isArray(project.imageUrls) && project.imageUrls.length
+  const sourceImages: unknown[] = Array.isArray(project.imageUrls) && project.imageUrls.length
     ? project.imageUrls
     : [project.imageUrl];
-  const coverIndex = Number.isInteger(project.coverIndex) && project.coverIndex >= 0 &&
-    project.coverIndex < sourceImages.length ? project.coverIndex : 0;
+  const coverIndex = typeof project.coverIndex === "number" && Number.isInteger(project.coverIndex) &&
+    project.coverIndex >= 0 && project.coverIndex < sourceImages.length ? project.coverIndex : 0;
   const images = [...new Set([
     sourceImages[coverIndex],
     ...sourceImages.filter((_, index) => index !== coverIndex),
@@ -42,17 +51,23 @@ export function mapNakiProject(project, baseUrl) {
   };
 }
 
+interface FetchNakiProjectsOptions {
+  baseUrl?: string;
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+}
+
 export async function fetchNakiProjects({
-  baseUrl = config.nakiApiUrl,
+  baseUrl = import.meta.env?.VITE_NAKI_API_URL || "https://naki-api.vercel.app",
   fetchImpl = fetch,
-  signal = AbortSignal.timeout(15000),
-} = {}) {
+  signal = AbortSignal.timeout(20000),
+}: FetchNakiProjectsOptions = {}): Promise<PlaygroundProject[]> {
   const apiBase = new URL(baseUrl);
   if (!["http:", "https:"].includes(apiBase.protocol)) {
-    throw new Error("NAKI_API_URL must use HTTP or HTTPS.");
+    throw new Error("VITE_NAKI_API_URL must use HTTP or HTTPS.");
   }
   const endpoint = new URL("/api/projects", apiBase);
-  const projects = new Map();
+  const projects = new Map<string, PlaygroundProject>();
   let totalPages = 1;
 
   // The unpaginated endpoint is capped at 30 projects, so always follow pagination.
@@ -61,13 +76,16 @@ export async function fetchNakiProjects({
     endpoint.searchParams.set("pageSize", "30");
     const response = await fetchImpl(endpoint, {
       headers: { Accept: "application/json" },
+      credentials: "omit",
       signal,
     });
     if (!response.ok) throw new Error(`Naki Code returned HTTP ${response.status}.`);
 
-    const data = await response.json();
-    if (!data || !Array.isArray(data.projects) || data.page !== page ||
-        !Number.isSafeInteger(data.totalPages) || data.totalPages < 1) {
+    const value: unknown = await response.json();
+    if (!value || typeof value !== "object") throw new Error("Invalid Naki Code pagination response.");
+    const data = value as Record<string, unknown>;
+    if (!Array.isArray(data.projects) || data.page !== page ||
+        typeof data.totalPages !== "number" || !Number.isSafeInteger(data.totalPages) || data.totalPages < 1) {
       throw new Error("Invalid Naki Code pagination response.");
     }
 
@@ -79,14 +97,4 @@ export async function fetchNakiProjects({
   }
 
   return [...projects.values()];
-}
-
-let pendingRequest;
-
-export function readPlaygroundProjects() {
-  // Share concurrent reads without retaining an outdated copy of the portfolio.
-  pendingRequest ??= fetchNakiProjects().finally(() => {
-    pendingRequest = undefined;
-  });
-  return pendingRequest;
 }

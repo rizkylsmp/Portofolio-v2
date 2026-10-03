@@ -1,14 +1,7 @@
 import { useEffect, useState } from "react";
-import { apiClient, getApiErrorMessage } from "../services/apiClient";
+import { fetchNakiProjects, type PlaygroundProject } from "../services/nakiProjects";
 
-export interface PlaygroundProject {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  images: string[];
-  link: string;
-}
+export type { PlaygroundProject } from "../services/nakiProjects";
 
 export function usePlaygroundProjects() {
   const [projects, setProjects] = useState<PlaygroundProject[]>([]);
@@ -27,18 +20,16 @@ export function usePlaygroundProjects() {
       lastFetched = Date.now();
       setLoading(true);
       try {
-        const { data } = await apiClient.get<{ projects: PlaygroundProject[] }>("/api/playground", {
-          signal: controller.signal,
-          timeout: 20000,
+        const updatedProjects = await fetchNakiProjects({
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
         });
-        if (!Array.isArray(data.projects)) throw new Error("Invalid playground response.");
         if (!controller.signal.aborted) {
-          setProjects(data.projects);
+          setProjects(updatedProjects);
           setError("");
         }
-      } catch (cause) {
+      } catch {
         if (!controller.signal.aborted) {
-          setError(getApiErrorMessage(cause, "Proyek belum bisa dimuat. Silakan coba lagi."));
+          setError("Proyek belum bisa dimuat. Silakan coba lagi.");
         }
       } finally {
         fetching = false;
