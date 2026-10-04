@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaArrowUp } from "react-icons/fa";
+import { scrollToSection } from "../utils/sectionMotion";
 
 const ScrollToTop: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -19,10 +20,8 @@ const ScrollToTop: React.FC = () => {
   }, []);
 
   const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    const profile = document.getElementById("profile");
+    if (profile) scrollToSection(profile);
   };
 
   return (

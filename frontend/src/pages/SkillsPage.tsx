@@ -21,7 +21,7 @@ const SkillsPage = () => {
 
   return (
     <div
-      className="relative flex min-h-svh flex-col justify-center overflow-hidden border-t border-border bg-surface px-5 py-20 text-text-primary sm:px-8 sm:py-24 md:px-12 lg:px-16 xl:px-24"
+      className="relative flex min-h-svh flex-col justify-center overflow-hidden border-t border-border bg-transparent px-5 py-20 text-text-primary sm:px-8 sm:py-24 md:px-12 lg:px-16 xl:px-24"
       data-aos="fade-up"
     >
       <div className="flex flex-col gap-8 text-accent lg:px-4 xl:px-8">

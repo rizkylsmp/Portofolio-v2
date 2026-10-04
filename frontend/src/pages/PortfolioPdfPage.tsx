@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   getCertificates,
   getContactConfig,
@@ -8,8 +8,8 @@ import {
   getSkills,
 } from "../services/storageService";
 
-const sectionClass = "pdf-section border-t border-slate-200 pt-3";
-const headingClass = "mb-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500";
+const sectionClass = "pdf-section border-t border-slate-300 pt-3";
+const headingClass = "mb-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-500";
 const cardClass = "pdf-card rounded-lg border border-slate-200 bg-white p-3";
 
 function asList(items: string[]): string[] {
@@ -18,12 +18,19 @@ function asList(items: string[]): string[] {
 
 function PortfolioPdfPage() {
   const [imagesReady, setImagesReady] = useState(false);
+  const printed = useRef(false);
   const profile = getProfile();
   const skills = getSkills();
   const experiences = getExperiences();
   const projects = getProjects();
   const certificates = getCertificates();
   const contact = getContactConfig();
+
+  useEffect(() => {
+    if (!imagesReady || printed.current || new URLSearchParams(window.location.search).get("print") !== "1") return;
+    printed.current = true;
+    window.print();
+  }, [imagesReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +115,23 @@ function PortfolioPdfPage() {
           padding: 24px 20px;
         }
 
+        .pdf-hero {
+          position: relative;
+          overflow: hidden;
+          border: 1px solid #dbe3ee;
+          border-radius: 14px;
+          padding: 18px;
+          background: linear-gradient(135deg, #f8fafc 0%, #ffffff 68%);
+        }
+
+        .pdf-hero::before {
+          position: absolute;
+          inset: 0 auto 0 0;
+          width: 5px;
+          background: #0f172a;
+          content: "";
+        }
+
         .pdf-section,
         .pdf-card {
           break-inside: avoid;
@@ -116,7 +140,7 @@ function PortfolioPdfPage() {
 
         .pdf-image-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 6px;
         }
 
@@ -129,20 +153,41 @@ function PortfolioPdfPage() {
           background: #f8fafc;
         }
 
+        .pdf-certificate-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .pdf-certificate-card {
+          min-height: 146px;
+        }
+
+        .pdf-certificate-card:last-child:nth-child(odd) {
+          grid-column: 1 / -1;
+        }
+
+        .pdf-link {
+          color: #475569;
+          text-decoration: none;
+        }
+
+        .pdf-link:hover {
+          text-decoration: underline;
+        }
+
         @media print {
           .pdf-shell {
             max-width: none;
             padding: 0;
           }
 
-          .pdf-image-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
+          .pdf-image-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
       `}</style>
 
       <div className="pdf-shell space-y-4">
-        <header className="pdf-section border-t-0 pt-0">
+        <header className="pdf-hero">
           <div className="flex items-start gap-4">
             {profile.photo && (
               <img
@@ -150,21 +195,21 @@ function PortfolioPdfPage() {
                 alt={profile.name}
                 loading="eager"
                 decoding="sync"
-                className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+                className="h-24 w-24 rounded-xl border border-slate-200 object-cover shadow-sm"
               />
             )}
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                 Portfolio
               </p>
-              <h1 className="mt-1 text-2xl font-bold leading-tight text-slate-950">
+              <h1 className="mt-1 text-[1.65rem] font-bold leading-tight tracking-[-0.025em] text-slate-950">
                 {profile.name}
               </h1>
               <p
                 className="mt-0.5 text-base font-semibold text-slate-700"
                 dangerouslySetInnerHTML={{ __html: profile.position }}
               />
-              <p className="mt-2 text-xs leading-5 text-slate-700">{profile.description}</p>
+              <p className="mt-2 text-xs leading-[1.65] text-slate-700">{profile.description}</p>
             </div>
           </div>
         </header>
@@ -243,7 +288,7 @@ function PortfolioPdfPage() {
 
                   {workImages.length > 0 && (
                     <div className="pdf-image-grid mt-3">
-                      {workImages.map((image, index) => (
+                      {workImages.slice(0, 3).map((image, index) => (
                         <img
                           key={`${image}-${index}`}
                           src={image}
@@ -264,8 +309,11 @@ function PortfolioPdfPage() {
         <section className={sectionClass}>
           <h2 className={headingClass}>Projects</h2>
           <div className="space-y-3">
-            {projects.map((project) => (
-              <article key={`${project.title}-${project.category}`} className={cardClass}>
+            {projects.map((project) => {
+              const featuredImages = project.images.slice(0, 3);
+
+              return (
+              <article key={`${project.title}-${project.category}`} className={`${cardClass} pdf-project-card`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-slate-950">{project.title}</h3>
@@ -274,9 +322,12 @@ function PortfolioPdfPage() {
                     </p>
                   </div>
                   {project.link && project.link !== "#" && (
-                    <p className="max-w-[320px] break-all text-right text-xs text-slate-500">
+                    <a
+                      href={project.link}
+                      className="pdf-link max-w-[320px] break-all text-right text-xs"
+                    >
                       {project.link}
-                    </p>
+                    </a>
                   )}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-slate-700">{project.description}</p>
@@ -285,9 +336,9 @@ function PortfolioPdfPage() {
                     Tech: {project.techIcons.join(", ")}
                   </p>
                 )}
-                {project.images.length > 0 && (
+                {featuredImages.length > 0 && (
                   <div className="pdf-image-grid mt-3">
-                    {project.images.map((image, index) => (
+                    {featuredImages.map((image, index) => (
                       <img
                         key={`${image}-${index}`}
                         src={image}
@@ -300,30 +351,31 @@ function PortfolioPdfPage() {
                   </div>
                 )}
               </article>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         <section className={sectionClass}>
           <h2 className={headingClass}>Certificates</h2>
-          <div className="space-y-3">
+          <div className="pdf-certificate-grid">
             {certificates.map((certificate) => (
-              <article key={certificate.title} className={cardClass}>
-                <h3 className="text-sm font-bold text-slate-950">{certificate.title}</h3>
+              <article key={certificate.title} className={`${cardClass} pdf-certificate-card`}>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-sm font-bold text-slate-950">{certificate.title}</h3>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.08em] text-slate-600">
+                    {certificate.images.length} certificate{certificate.images.length === 1 ? "" : "s"}
+                  </span>
+                </div>
                 <p className="mt-1 text-xs leading-5 text-slate-700">{certificate.description}</p>
                 {certificate.images.length > 0 && (
-                  <div className="pdf-image-grid mt-3">
-                    {certificate.images.map((image, index) => (
-                      <img
-                        key={`${image}-${index}`}
-                        src={image}
-                        alt={`${certificate.title} ${index + 1}`}
-                        loading="eager"
-                        decoding="sync"
-                        className="pdf-image"
-                      />
-                    ))}
-                  </div>
+                  <img
+                    src={certificate.images[0]}
+                    alt={`${certificate.title} preview`}
+                    loading="eager"
+                    decoding="sync"
+                    className="pdf-image mt-3 max-w-[220px]"
+                  />
                 )}
               </article>
             ))}
@@ -339,13 +391,18 @@ function PortfolioPdfPage() {
               <div className="mt-3 grid gap-1.5 text-xs text-slate-700 sm:grid-cols-2">
                 {contact.links.map((link) => (
                   <p key={`${link.type}-${link.href}`} className="break-all">
-                    <span className="font-semibold">{link.label}:</span> {link.href}
+                    <span className="font-semibold">{link.label}:</span>{" "}
+                    <a href={link.href} className="pdf-link">{link.href}</a>
                   </p>
                 ))}
               </div>
             </div>
           </section>
         )}
+
+        <footer className="border-t border-slate-300 pt-3 text-center text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
+          RLSMP / Portfolio 2026
+        </footer>
       </div>
     </main>
   );

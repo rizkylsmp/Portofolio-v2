@@ -12,7 +12,7 @@ const ContactPage = () => {
     "https://wa.link/379fob";
 
   return (
-    <div className="relative flex min-h-svh items-center overflow-hidden border-t border-border bg-surface px-5 py-20 text-accent sm:px-8 md:px-12 lg:px-16 xl:px-20">
+    <div className="relative flex min-h-svh items-center overflow-hidden border-t border-border bg-transparent px-5 py-20 text-accent sm:px-8 md:px-12 lg:px-16 xl:px-20">
       <div className="mx-auto w-full max-w-[104rem]">
         <header data-aos="fade-up">
           <h2 className="break-words text-[clamp(4rem,15vw,14rem)] font-medium leading-[0.8] tracking-[-0.075em] text-accent">

@@ -2,21 +2,24 @@ import { useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Theme from "../components/tools/Theme";
 import ScrollToTop from "../components/ScrollToTop";
+import ParticleBackground from "../components/ParticleBackground";
 import ProfilePage from "../pages/ProfilePage";
 import SkillPage from "../pages/SkillsPage";
 import ExperiencePage from "../pages/ExperiencePage";
 import ProjectsPage from "../pages/ProjectsPage";
 import CertificatePage from "../pages/CertificatePage";
 import ContactPage from "../pages/ContactPage";
+import { cancelSectionMotion, scrollToSection } from "../utils/sectionMotion";
 
 const RootLayout = () => {
   const snapLocked = useRef(false);
 
   useEffect(() => {
     const sectionIds = ["profile", "skills", "experience", "projects", "certificates", "contact"];
+    let unlockTimer: ReturnType<typeof window.setTimeout>;
 
     const handleWheel = (event: WheelEvent) => {
-      if (snapLocked.current || Math.abs(event.deltaY) < 4 || event.ctrlKey) return;
+      if (document.body.style.overflow === "hidden" || window.matchMedia("(prefers-reduced-motion: reduce)").matches || snapLocked.current || Math.abs(event.deltaY) < 4 || event.ctrlKey) return;
 
       const sections = sectionIds
         .map((id) => document.getElementById(id))
@@ -50,22 +53,27 @@ const RootLayout = () => {
 
       event.preventDefault();
       snapLocked.current = true;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      window.setTimeout(() => {
+      scrollToSection(target);
+      unlockTimer = window.setTimeout(() => {
         snapLocked.current = false;
-      }, 700);
+      }, 1000);
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => window.removeEventListener("wheel", handleWheel);
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+      window.clearTimeout(unlockTimer);
+      cancelSectionMotion();
+    };
   }, []);
 
   return (
-    <div>
+    <div className="portfolio-motion relative isolate min-h-svh bg-surface">
+      <ParticleBackground />
       <Navbar />
       <Theme />
       <ScrollToTop />
-      <main className="min-w-0 bg-surface lg:ml-[clamp(6.5rem,8vw,8rem)]">
+      <main className="relative z-10 min-w-0 bg-transparent lg:ml-[clamp(6.5rem,8vw,8rem)]">
         <section id="profile" className="min-h-svh">
           <ProfilePage />
         </section>

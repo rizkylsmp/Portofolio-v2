@@ -18,19 +18,24 @@ import { config } from "../config/env.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const imagesRoot = path.resolve(scriptDir, "../../../frontend/public/images");
+const uploadsRoot = path.resolve(scriptDir, "../../uploads");
 
 async function migratePortfolioToCloud() {
   if (!isCloudinaryConfigured()) {
     throw new Error("Cloudinary credentials are not configured.");
   }
 
+  // Acquire and retain the single managed-database pool connection before
+  // Cloudinary work. Otherwise serverless instances can consume every limited
+  // Clever Cloud connection while this migration is uploading assets.
+  await initializeDatabase();
+
   const seedData = await readPortfolioSeedData();
-  const localUrls = [...collectLocalImageUrls(seedData)].sort();
+  const localUrls = [...collectLocalAssetUrls(seedData)].sort();
   const localFiles = new Map();
 
   for (const url of localUrls) {
-    const relativePath = url.slice("/images/".length);
-    const filePath = path.join(imagesRoot, ...relativePath.split("/"));
+    const { filePath } = resolveLocalAsset(url);
     await fs.access(filePath);
     localFiles.set(url, filePath);
   }
@@ -40,9 +45,10 @@ async function migratePortfolioToCloud() {
   let completed = 0;
 
   for (const [localUrl, filePath] of localFiles) {
-    const relativePath = localUrl.slice("/images/".length);
+    const { relativePath, source } = resolveLocalAsset(localUrl);
     const pathParts = relativePath.split("/");
-    const target = `migrated/${slugify(pathParts[0] || "assets")}`;
+    const category = slugify(pathParts[0] || "assets");
+    const target = source === "images" ? `migrated/${category}` : `migrated/uploads/${category}`;
     const baseName = path.basename(relativePath, path.extname(relativePath));
     const hash = crypto.createHash("sha1").update(relativePath).digest("hex").slice(0, 10);
     const publicId = `${slugify(baseName)}-${hash}`;
@@ -56,11 +62,10 @@ async function migratePortfolioToCloud() {
   }
 
   const migratedData = replaceLocalImageUrls(seedData, cloudUrls);
-  await initializeDatabase();
   await writePortfolioData(migratedData);
 
   const storedData = await readPortfolioData();
-  const remainingLocalUrls = collectLocalImageUrls(storedData);
+  const remainingLocalUrls = collectLocalAssetUrls(storedData);
   if (remainingLocalUrls.size > 0) {
     throw new Error(`${remainingLocalUrls.size} local image URLs remain after migration.`);
   }
@@ -76,22 +81,34 @@ async function getExistingImageAsset(publicId) {
   return result;
 }
 
-function collectLocalImageUrls(value, result = new Set()) {
+function collectLocalAssetUrls(value, result = new Set()) {
   if (typeof value === "string") {
-    if (value.startsWith("/images/")) result.add(value);
+    if (value.startsWith("/images/") || value.startsWith("/uploads/")) result.add(value);
     return result;
   }
 
   if (Array.isArray(value)) {
-    for (const item of value) collectLocalImageUrls(item, result);
+    for (const item of value) collectLocalAssetUrls(item, result);
     return result;
   }
 
   if (value && typeof value === "object") {
-    for (const item of Object.values(value)) collectLocalImageUrls(item, result);
+    for (const item of Object.values(value)) collectLocalAssetUrls(item, result);
   }
 
   return result;
+}
+
+function resolveLocalAsset(url) {
+  const isUpload = url.startsWith("/uploads/");
+  const prefix = isUpload ? "/uploads/" : "/images/";
+  const relativePath = url.slice(prefix.length);
+
+  return {
+    relativePath,
+    source: isUpload ? "uploads" : "images",
+    filePath: path.join(isUpload ? uploadsRoot : imagesRoot, ...relativePath.split("/")),
+  };
 }
 
 function replaceLocalImageUrls(value, cloudUrls) {

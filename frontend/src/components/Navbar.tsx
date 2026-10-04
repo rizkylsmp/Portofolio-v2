@@ -1,5 +1,6 @@
 import React from "react";
 import { RxCross2, RxHamburgerMenu } from "react-icons/rx";
+import { scrollToSection } from "../utils/sectionMotion";
 
 const LINKS = [
   { name: "Profile", to: "#profile" },
@@ -54,7 +55,7 @@ const Navbar = () => {
   const handleNavigate = (to: string) => {
     setOpen(false);
     const element = document.getElementById(to.replace("#", ""));
-    element?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (element) scrollToSection(element);
   };
 
   const renderLinks = () =>
@@ -66,8 +67,9 @@ const Navbar = () => {
         <button
           key={link.to}
           type="button"
+          data-nav-section={sectionId}
           className={`group flex min-h-12 w-full cursor-pointer items-center gap-4 border-0 bg-transparent py-2 text-left font-mono text-[clamp(1.15rem,6vw,1.65rem)] font-medium uppercase tracking-[0.04em] text-text-tertiary transition-all duration-200 hover:translate-x-1 hover:text-accent focus-visible:translate-x-1 focus-visible:text-accent lg:min-h-8 lg:w-auto lg:gap-[0.65rem] lg:p-1 lg:pl-0 lg:text-[0.66rem] lg:tracking-[0.06em] ${
-            isActive ? "translate-x-1 text-accent" : ""
+            ""
           } ${
             sectionId === "contact"
               ? "mt-5 border-t border-border pt-5 text-accent normal-case lg:mt-3 lg:pt-3"
@@ -81,7 +83,7 @@ const Navbar = () => {
               sectionId === "contact"
                 ? `h-px w-[0.4rem] rotate-0 border-0 bg-current ${isActive ? "scale-x-[1.7]" : ""}`
                 : "h-2 w-2 group-hover:scale-110 lg:h-[0.3rem] lg:w-[0.3rem]"
-            } ${isActive && sectionId !== "contact" ? "bg-current" : ""}`}
+            } ${isActive && sectionId !== "contact" ? "bg-accent border-accent" : ""}`}
             aria-hidden="true"
           />
           <span

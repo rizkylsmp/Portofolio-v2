@@ -40,7 +40,9 @@ export async function initializePool() {
     database: config.db.name,
     waitForConnections: true,
     connectionLimit: config.db.connectionLimit,
-    maxIdle: config.db.connectionLimit,
+    // Serverless instances must release their sole managed DB connection when
+    // idle instead of exhausting a low max_user_connections allowance.
+    maxIdle: config.db.managed ? 0 : config.db.connectionLimit,
     idleTimeout: 10_000,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,

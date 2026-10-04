@@ -1,8 +1,11 @@
 import React from "react";
+import { createPortal } from "react-dom";
+import { animate } from "animejs";
 import { BiX, BiZoomIn } from "react-icons/bi";
 import { MdArrowForward, MdChevronLeft, MdChevronRight, MdRefresh } from "react-icons/md";
 import { PiDesktopBold, PiGameControllerBold, PiGridFourBold } from "react-icons/pi";
 import { usePlaygroundProjects, type PlaygroundProject } from "../hooks/usePlaygroundProjects";
+import { useImageSwipe } from "../hooks/useImageSwipe";
 
 type GridColumns = 3 | 4 | 5;
 
@@ -16,6 +19,19 @@ const ProjectsPage = () => {
   const [gridColumns, setGridColumns] = React.useState<GridColumns>(3);
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
   const [cardImageIndexes, setCardImageIndexes] = React.useState<Record<string, number>>({});
+  const gridRef = React.useRef<HTMLDivElement>(null);
+  const oldPositions = React.useRef(new Map<string, DOMRect>());
+  const cardAnimations = React.useRef<Array<ReturnType<typeof animate>>>([]);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const previewImageRef = React.useRef<HTMLImageElement>(null);
+  const sourceRef = React.useRef<HTMLButtonElement | null>(null);
+  const sourceBounds = React.useRef<DOMRect | null>(null);
+  const opening = React.useRef(false);
+  const closing = React.useRef(false);
+  const zoomAnimation = React.useRef<ReturnType<typeof animate> | null>(null);
+  const overlayAnimation = React.useRef<ReturnType<typeof animate> | null>(null);
+  const filterExit = React.useRef<ReturnType<typeof animate> | null>(null);
+  const slideDirection = React.useRef<-1 | 0 | 1>(0);
   const { projects, loading, error, retry } = usePlaygroundProjects();
   const categories = [...new Set(projects.map((project) => project.category))];
   const filters = [
@@ -35,19 +51,144 @@ const ProjectsPage = () => {
     4: "lg:grid-cols-3 xl:grid-cols-4",
     5: "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
   }[gridColumns];
+  const projectKey = visibleProjects.map((project) => project.id).join(",");
+  const previewOpen = preview !== null;
 
   React.useEffect(() => {
-    if (!preview) return;
+    if (!preview || preview.project.images.length < 2) return;
+    const { images } = preview.project;
+    for (const offset of [-1, 1]) {
+      const nextImage = new Image();
+      nextImage.src = images[(preview.imageIndex + offset + images.length) % images.length];
+    }
+  }, [preview]);
+
+  const captureLayout = () => {
+    oldPositions.current.clear();
+    gridRef.current?.querySelectorAll<HTMLElement>("[data-project-id]").forEach((card) => {
+      oldPositions.current.set(card.dataset.projectId!, card.getBoundingClientRect());
+    });
+    cardAnimations.current.forEach((animation) => animation.revert());
+  };
+
+  const selectFilter = (value: string | null) => {
+    filterExit.current?.revert();
+    if (activeFilter === value) return;
+    const cards = Array.from(gridRef.current?.querySelectorAll<HTMLElement>("[data-project-id]") ?? []);
+    const commit = () => {
+      filterExit.current?.revert();
+      captureLayout();
+      oldPositions.current.clear();
+      setFilter(value);
+    };
+    if (!cards.length || window.matchMedia("(prefers-reduced-motion: reduce)").matches) commit();
+    else filterExit.current = animate(cards, {
+      opacity: 0, translateY: -8, duration: 150, ease: "in(2)", onComplete: commit,
+    });
+  };
+
+  React.useEffect(() => () => { filterExit.current?.revert(); }, []);
+
+  React.useLayoutEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    cardAnimations.current = Array.from(gridRef.current?.querySelectorAll<HTMLElement>("[data-project-id]") ?? []).map((card, index) => {
+      const previous = oldPositions.current.get(card.dataset.projectId!);
+      const current = card.getBoundingClientRect();
+      return animate(card, {
+        translateX: [previous ? previous.left - current.left : 0, 0],
+        translateY: [previous ? previous.top - current.top : 18, 0],
+        opacity: [previous ? 1 : 0, 1],
+        duration: 420,
+        delay: previous ? 0 : Math.min(index * 35, 140),
+        ease: "out(3)",
+      });
+    });
+    oldPositions.current.clear();
+    return () => cardAnimations.current.forEach((animation) => animation.revert());
+  }, [activeFilter, gridColumns, projectKey]);
+
+  const closePreview = React.useCallback(() => {
+    if (closing.current) return;
+    closing.current = true;
+    zoomAnimation.current?.revert();
+    const image = previewImageRef.current;
+    const target = sourceRef.current?.getBoundingClientRect();
+    if (!image || !target || window.matchMedia("(prefers-reduced-motion: reduce)").matches || target.bottom < 0 || target.top > window.innerHeight) {
+      setPreview(null);
+      closing.current = false;
+      return;
+    }
+    const bounds = image.getBoundingClientRect();
+    overlayAnimation.current?.pause();
+    if (dialogRef.current) overlayAnimation.current = animate(dialogRef.current, {
+      opacity: 0, duration: 260, ease: "inOutSine",
+    });
+    zoomAnimation.current = animate(image, {
+      translateX: target.left + target.width / 2 - bounds.left - bounds.width / 2,
+      translateY: target.top + target.height / 2 - bounds.top - bounds.height / 2,
+      scaleX: target.width / Math.max(bounds.width, 1),
+      scaleY: target.height / Math.max(bounds.height, 1),
+      opacity: [1, 0],
+      duration: 260,
+      ease: "inOutSine",
+      onComplete: () => { setPreview(null); closing.current = false; },
+    });
+  }, []);
+
+  const animatePreviewImage = () => {
+    const image = previewImageRef.current;
+    if (!image || closing.current) return;
+    zoomAnimation.current?.revert();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      image.style.opacity = "1";
+      opening.current = false;
+      return;
+    }
+    const bounds = image.getBoundingClientRect();
+    const origin = opening.current ? sourceBounds.current : null;
+    opening.current = false;
+    zoomAnimation.current = animate(image, {
+      translateX: [origin ? origin.left + origin.width / 2 - bounds.left - bounds.width / 2 : slideDirection.current * Math.min(bounds.width * 0.25, 180), 0],
+      translateY: [origin ? origin.top + origin.height / 2 - bounds.top - bounds.height / 2 : 0, 0],
+      scaleX: [origin ? origin.width / Math.max(bounds.width, 1) : 1, 1],
+      scaleY: [origin ? origin.height / Math.max(bounds.height, 1) : 1, 1],
+      opacity: [0, 1],
+      duration: origin ? 440 : 200,
+      ease: "out(3)",
+    });
+  };
+
+  React.useEffect(() => {
+    if (!previewOpen) return;
+    if (dialogRef.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      overlayAnimation.current = animate(dialogRef.current, {
+        opacity: [0, 1], duration: 220, ease: "out(2)",
+      });
+    }
+    dialogRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreview(null);
+      if (event.key === "Escape") closePreview();
+      if (closing.current) {
+        if (event.key === "Tab") event.preventDefault();
+        return;
+      }
+      if (event.key === "Tab") {
+        const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
       if (event.key === "ArrowLeft") {
+        slideDirection.current = -1;
         setPreview((current) => current ? {
           ...current,
           imageIndex: (current.imageIndex - 1 + current.project.images.length) % current.project.images.length,
         } : null);
       }
       if (event.key === "ArrowRight") {
+        slideDirection.current = 1;
         setPreview((current) => current ? {
           ...current,
           imageIndex: (current.imageIndex + 1) % current.project.images.length,
@@ -61,10 +202,15 @@ const ProjectsPage = () => {
     return () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      zoomAnimation.current?.revert();
+      overlayAnimation.current?.revert();
+      sourceRef.current?.focus({ preventScroll: true });
     };
-  }, [preview]);
+  }, [previewOpen, closePreview]);
 
   const changePreviewImage = (direction: -1 | 1) => {
+    if (closing.current) return;
+    slideDirection.current = direction;
     setPreview((current) => {
       if (!current || current.project.images.length < 2) return current;
       return {
@@ -73,6 +219,7 @@ const ProjectsPage = () => {
       };
     });
   };
+  const swipe = useImageSwipe(previewImageRef, changePreviewImage, Boolean(preview && preview.project.images.length > 1), () => zoomAnimation.current?.pause());
 
   const changeCardImage = (projectId: string, imageCount: number, direction: -1 | 1) => {
     setCardImageIndexes((current) => {
@@ -85,7 +232,7 @@ const ProjectsPage = () => {
   };
 
   return (
-    <div className="min-h-svh overflow-hidden border-t border-border bg-surface text-text-primary">
+    <div className="min-h-svh overflow-hidden border-t border-border bg-transparent text-text-primary">
       <div className="mx-auto w-full max-w-[104rem] px-4 pb-20 pt-24 sm:px-6 sm:pb-24 sm:pt-28 md:px-10 lg:px-12 lg:pb-28 lg:pt-32 xl:px-16 2xl:px-[5.5rem]">
         <header className="mb-20 lg:mb-[clamp(5rem,11vw,10rem)]" data-aos="fade-up">
           <p className="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.08em] text-text-tertiary">Selected experiments / {String(projects.length).padStart(2, "0")}</p>
@@ -104,7 +251,9 @@ const ProjectsPage = () => {
                     <button
                       key={item.value === null ? "all" : `category-${item.value}`}
                       type="button"
-                      onClick={() => setFilter(item.value)}
+                      onClick={() => {
+                        selectFilter(item.value);
+                      }}
                       aria-pressed={activeFilter === item.value}
                       className={`inline-flex min-h-11 items-center gap-2 border px-3 py-2 font-mono text-[0.66rem] uppercase transition-colors duration-200 ${activeFilter === item.value ? "border-accent bg-accent text-surface" : "border-border bg-surface text-text-primary hover:border-accent hover:bg-accent hover:text-surface"}`}
                     >
@@ -122,7 +271,12 @@ const ProjectsPage = () => {
                     <button
                       key={columns}
                       type="button"
-                      onClick={() => setGridColumns(columns)}
+                      onClick={() => {
+                        filterExit.current?.revert();
+                        if (gridColumns === columns) return;
+                        captureLayout();
+                        setGridColumns(columns);
+                      }}
                       aria-pressed={gridColumns === columns}
                       className={`inline-flex min-h-11 min-w-11 items-center justify-center border px-3 py-2 font-mono text-[0.66rem] uppercase transition-colors duration-200 ${gridColumns === columns ? "border-accent bg-accent text-surface" : "border-border bg-surface text-text-primary hover:border-accent hover:bg-accent hover:text-surface"}`}
                       aria-label={`${columns} kolom`}
@@ -149,7 +303,7 @@ const ProjectsPage = () => {
           <p role="status" className="py-24 text-center text-sm text-text-secondary">Memuat proyek...</p>
         )}
 
-        <div className={`grid grid-cols-1 items-start gap-x-4 gap-y-16 sm:grid-cols-2 lg:gap-x-8 lg:gap-y-20 ${gridClass}`} aria-live="polite" aria-busy={loading}>
+        <div ref={gridRef} className={`grid grid-cols-1 items-start gap-x-4 gap-y-16 sm:grid-cols-2 lg:gap-x-8 lg:gap-y-20 ${gridClass}`} aria-live="polite" aria-busy={loading}>
           {visibleProjects.map((project, index) => {
             const coverImage = project.images[0];
             const activeImageIndex = Math.min(cardImageIndexes[project.id] ?? 0, Math.max(project.images.length - 1, 0));
@@ -159,8 +313,7 @@ const ProjectsPage = () => {
               <article
                 key={project.id}
                 className="flex h-full min-w-0 flex-col border border-border p-3 transition-colors duration-200 hover:border-accent"
-                data-aos="fade-up"
-                data-aos-delay={Math.min(index * 60, 240)}
+                data-project-id={project.id}
               >
                 <div className="mb-2 flex justify-between gap-4 font-mono text-[0.66rem] uppercase tracking-[0.08em] text-text-tertiary">
                   <span>[{String(index + 1).padStart(3, "0")}]</span>
@@ -170,7 +323,14 @@ const ProjectsPage = () => {
                 <button
                   type="button"
                   className="group relative block aspect-[4/3] w-full cursor-zoom-in overflow-hidden border border-border bg-surface-tertiary disabled:cursor-default"
-                  onClick={() => coverImage && setPreview({ project, imageIndex: activeImageIndex })}
+                  onClick={(event) => {
+                    if (!coverImage) return;
+                    sourceRef.current = event.currentTarget;
+                    sourceBounds.current = event.currentTarget.getBoundingClientRect();
+                    opening.current = true;
+                    closing.current = false;
+                    setPreview({ project, imageIndex: activeImageIndex });
+                  }}
                   disabled={!coverImage}
                   aria-label={coverImage ? `Lihat galeri ${project.title}` : `${project.title} tidak memiliki gambar`}
                 >
@@ -260,10 +420,11 @@ const ProjectsPage = () => {
         )}
       </div>
 
-      {preview && (
+      {preview && createPortal(
         <div
-          className="fixed inset-0 z-[80] grid place-items-center bg-black/90 p-4"
-          onClick={() => setPreview(null)}
+          ref={dialogRef}
+          className="portfolio-motion fixed inset-0 z-[80] grid place-items-center bg-black/90 p-4"
+          onClick={closePreview}
           role="dialog"
           aria-modal="true"
           aria-label={`Galeri ${preview.project.title}`}
@@ -274,13 +435,20 @@ const ProjectsPage = () => {
                 <span className="font-mono text-[0.62rem] uppercase tracking-[0.08em] text-text-tertiary">{preview.project.category}</span>
                 <h2 className="text-[clamp(1.25rem,2vw,2rem)] font-bold">{preview.project.title}</h2>
               </div>
-              <button className="grid h-11 w-11 place-items-center text-3xl" type="button" onClick={() => setPreview(null)} aria-label="Tutup galeri">
+              <button className="grid h-11 w-11 shrink-0 place-items-center text-3xl" type="button" onClick={closePreview} aria-label="Tutup galeri">
                 <BiX />
               </button>
             </div>
 
-            <div className="relative grid min-h-[min(62vh,42rem)] place-items-center overflow-hidden bg-[#090909]">
+            <div className="relative grid min-h-[min(62vh,42rem)] place-items-center bg-[#090909]">
               <img
+                ref={previewImageRef}
+                {...swipe}
+                draggable={false}
+                key={preview.project.images[preview.imageIndex]}
+                onLoad={animatePreviewImage}
+                onError={() => { if (previewImageRef.current) previewImageRef.current.style.opacity = "1"; }}
+                style={{ opacity: 0, transformOrigin: "center", touchAction: "pan-y", cursor: "grab" }}
                 src={preview.project.images[preview.imageIndex]}
                 alt={`${preview.project.title} ${preview.imageIndex + 1}`} className="max-h-[68vh] max-w-full object-contain"
               />
@@ -301,7 +469,7 @@ const ProjectsPage = () => {
               <p className="max-w-[45rem] text-[0.78rem] leading-relaxed text-text-secondary">{preview.project.description}</p>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   );
