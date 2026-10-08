@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchNakiProjects, mapNakiProject } from "./nakiProjects.ts";
+import { fetchNakiProjects, mapNakiProject, fetchNakiDesigns, mapNakiDesign } from "./nakiProjects.ts";
 
 const baseUrl = "https://naki.example.test";
 const project = (id, overrides = {}) => ({
@@ -22,6 +22,9 @@ const page = (number, projects, totalPages = 1) => Response.json({
 test("maps source category, cover, gallery and public website", () => {
   assert.deepEqual(mapNakiProject(project(8), baseUrl), {
     id: "naki-8",
+    kind: "project",
+    niche: "",
+    techStack: [],
     title: "Project 8",
     category: "Dashboard",
     description: "Project description",
@@ -32,6 +35,32 @@ test("maps source category, cover, gallery and public website", () => {
       `${baseUrl}/uploads/third.png`,
     ],
   });
+});
+
+test("normalizes project tech stack without duplicating values", () => {
+  assert.deepEqual(mapNakiProject(project(1, { techStack: ["React", " React ", "", 5, "Tailwind"] }), baseUrl).techStack, ["React", "Tailwind"]);
+});
+
+test("maps design categories, niche, stack and preview gallery separately from projects", () => {
+  const design = mapNakiDesign({ id: 1, title: "Restaurant", category: "Landing Page", niche: "Food", stack: ["Next.js"], preview: [{ image: "/uploads/cover.png" }, { image: "javascript:alert(1)" }], demoUrl: "https://demo.example.test" }, baseUrl);
+  assert.equal(design.id, "naki-design-1");
+  assert.equal(design.kind, "design");
+  assert.equal(design.category, "Landing Page");
+  assert.equal(design.niche, "Food");
+  assert.deepEqual(design.techStack, ["Next.js"]);
+  assert.deepEqual(design.images, [`${baseUrl}/uploads/cover.png`]);
+  assert.equal(design.link, "https://demo.example.test/");
+});
+
+test("fetches public designs, excludes drafts and validates responses", async () => {
+  const result = await fetchNakiDesigns({ baseUrl, fetchImpl: async (url, options) => {
+    assert.equal(url.pathname, "/api/designs");
+    assert.equal(options.credentials, "omit");
+    return Response.json({ templates: [{ id: 1, title: "Visible", publicationStatus: "published" }, { id: 2, title: "Draft", publicationStatus: "draft" }] });
+  } });
+  assert.equal(result.length, 1);
+  await assert.rejects(fetchNakiDesigns({ baseUrl, fetchImpl: async () => Response.json({}) }), /design response/);
+  await assert.rejects(fetchNakiDesigns({ baseUrl, fetchImpl: async () => new Response(null, { status: 503 }) }), /HTTP 503/);
 });
 
 test("keeps legacy images and normalizes invalid cover indexes", () => {

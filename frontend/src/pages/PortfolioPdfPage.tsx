@@ -4,9 +4,10 @@ import {
   getContactConfig,
   getExperiences,
   getProfile,
-  getProjects,
   getSkills,
 } from "../services/storageService";
+import { usePlaygroundProjects } from "../hooks/usePlaygroundProjects";
+import { playgroundKindLabels } from "../services/nakiProjects";
 
 const sectionClass = "pdf-section border-t border-slate-300 pt-3";
 const headingClass = "mb-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-500";
@@ -17,23 +18,28 @@ function asList(items: string[]): string[] {
 }
 
 function PortfolioPdfPage() {
-  const [imagesReady, setImagesReady] = useState(false);
+  const [readyImageKey, setReadyImageKey] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState(0);
   const printed = useRef(false);
   const profile = getProfile();
   const skills = getSkills();
   const experiences = getExperiences();
-  const projects = getProjects();
+  const { projects, loading, error, retry } = usePlaygroundProjects();
+  const imageKey = JSON.stringify(projects.map((project) => [project.id, project.images]));
+  const imagesReady = readyImageKey === imageKey;
+  const ready = !loading && !error && imagesReady;
   const certificates = getCertificates();
   const contact = getContactConfig();
 
   useEffect(() => {
-    if (!imagesReady || printed.current || new URLSearchParams(window.location.search).get("print") !== "1") return;
+    if (!ready || failedImages || printed.current || new URLSearchParams(window.location.search).get("print") !== "1") return;
     printed.current = true;
     window.print();
-  }, [imagesReady]);
+  }, [ready, failedImages]);
 
   useEffect(() => {
     let cancelled = false;
+    if (loading || error) return;
     const images = Array.from(
       document.querySelectorAll<HTMLImageElement>(".portfolio-pdf img")
     );
@@ -56,9 +62,10 @@ function PortfolioPdfPage() {
         )
       )
       .then(() => {
+        if (!cancelled) setFailedImages(images.filter((image) => !image.naturalWidth).length);
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
-            if (!cancelled) setImagesReady(true);
+            if (!cancelled) setReadyImageKey(imageKey);
           });
         });
       });
@@ -66,7 +73,7 @@ function PortfolioPdfPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loading, error, imageKey]);
 
   if (!profile) {
     return (
@@ -79,8 +86,14 @@ function PortfolioPdfPage() {
   return (
     <main
       className="portfolio-pdf bg-white text-slate-900"
-      data-pdf-ready={imagesReady ? "true" : "false"}
+      data-pdf-ready={ready ? "true" : "false"}
     >
+      <div className="pdf-toolbar mx-auto flex max-w-[940px] flex-wrap items-center gap-3 border-b border-slate-200 p-4 text-sm" role="status">
+        {loading ? <p>Memuat data terbaru...</p> : error ? <p>{error}</p> : !imagesReady ? <p>Menyiapkan gambar...</p> : <p>{projects.length} karya siap dicetak.</p>}
+        {failedImages > 0 && <p role="alert">{failedImages} gambar gagal dimuat. Periksa koneksi sebelum mencetak.</p>}
+        {error && <button type="button" onClick={retry} disabled={loading} className="border border-slate-300 px-3 py-2">Coba lagi</button>}
+        <button type="button" disabled={!ready} onClick={() => window.print()} className="ml-auto border border-slate-300 px-3 py-2 disabled:opacity-40">Cetak PDF</button>
+      </div>
       <style>{`
         @page {
           size: A4;
@@ -88,6 +101,7 @@ function PortfolioPdfPage() {
         }
 
         @media print {
+          .pdf-toolbar { display: none !important; }
           html,
           body,
           #root {
@@ -119,9 +133,9 @@ function PortfolioPdfPage() {
           position: relative;
           overflow: hidden;
           border: 1px solid #dbe3ee;
-          border-radius: 14px;
-          padding: 18px;
-          background: linear-gradient(135deg, #f8fafc 0%, #ffffff 68%);
+          border-radius: 0;
+          padding: 12px;
+          background: #ffffff;
         }
 
         .pdf-hero::before {
@@ -132,11 +146,17 @@ function PortfolioPdfPage() {
           content: "";
         }
 
-        .pdf-section,
         .pdf-card {
           break-inside: avoid;
           page-break-inside: avoid;
         }
+
+        .pdf-section { break-inside: auto; }
+        .pdf-section h2, .pdf-group-title { break-after: avoid; }
+        .pdf-project-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .pdf-project-card { min-width: 0; overflow-wrap: anywhere; }
+        .pdf-project-card .pdf-image-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .pdf-group-title { margin: 10px 0 6px; font-size: 12px; font-weight: 700; }
 
         .pdf-image-grid {
           display: grid;
@@ -147,8 +167,8 @@ function PortfolioPdfPage() {
         .pdf-image {
           width: 100%;
           height: 82px;
-          object-fit: cover;
-          border-radius: 8px;
+          object-fit: contain;
+          border-radius: 2px;
           border: 1px solid #e2e8f0;
           background: #f8fafc;
         }
@@ -159,12 +179,9 @@ function PortfolioPdfPage() {
           gap: 10px;
         }
 
-        .pdf-certificate-card {
-          min-height: 146px;
-        }
-
-        .pdf-certificate-card:last-child:nth-child(odd) {
-          grid-column: 1 / -1;
+        .pdf-certificate-card .pdf-image-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        @media screen and (max-width: 600px) {
+          .pdf-project-grid, .pdf-certificate-grid { grid-template-columns: 1fr; }
         }
 
         .pdf-link {
@@ -183,6 +200,31 @@ function PortfolioPdfPage() {
           }
 
           .pdf-image-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .pdf-certificate-grid {
+            display: block;
+            column-count: 2;
+            column-gap: 8px;
+          }
+          .pdf-certificate-grid > article {
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 8px;
+            vertical-align: top;
+          }
+          .pdf-project-grid { display: block; }
+          .pdf-project-grid > article {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+            align-items: start;
+            gap: 10px;
+            margin-bottom: 8px;
+          }
+          .pdf-project-card .pdf-image-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin-top: 0;
+          }
+          .pdf-project-card .pdf-image { height: 70px; }
+          .pdf-certificate-card .pdf-image { height: 64px; }
         }
       `}</style>
 
@@ -288,7 +330,7 @@ function PortfolioPdfPage() {
 
                   {workImages.length > 0 && (
                     <div className="pdf-image-grid mt-3">
-                      {workImages.slice(0, 3).map((image, index) => (
+                      {workImages.map((image, index) => (
                         <img
                           key={`${image}-${index}`}
                           src={image}
@@ -307,18 +349,24 @@ function PortfolioPdfPage() {
         </section>
 
         <section className={sectionClass}>
-          <h2 className={headingClass}>Projects</h2>
-          <div className="space-y-3">
-            {projects.map((project) => {
-              const featuredImages = project.images.slice(0, 3);
+          <h2 className={headingClass}>Playground</h2>
+          {(["company", "project", "design"] as const).map((kind) => {
+            const group = projects.filter((project) => project.kind === kind);
+            if (!group.length) return null;
+            return <div key={kind}>
+            <h3 className="pdf-group-title">{playgroundKindLabels[kind]} ({group.length})</h3>
+            <div className="pdf-project-grid">
+            {group.map((project) => {
+              const featuredImages = project.images;
 
               return (
-              <article key={`${project.title}-${project.category}`} className={`${cardClass} pdf-project-card`}>
+              <article key={project.id} className={`${cardClass} pdf-project-card`}>
+                <div>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-slate-950">{project.title}</h3>
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      {project.category}
+                      {[project.category, project.niche].filter(Boolean).join(" / ")}
                     </p>
                   </div>
                   {project.link && project.link !== "#" && (
@@ -331,11 +379,12 @@ function PortfolioPdfPage() {
                   )}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-slate-700">{project.description}</p>
-                {project.techIcons.length > 0 && (
+                {project.techStack.length > 0 && (
                   <p className="mt-2 text-xs font-semibold text-slate-600">
-                    Tech: {project.techIcons.join(", ")}
+                    Tech: {project.techStack.join(", ")}
                   </p>
                 )}
+                </div>
                 {featuredImages.length > 0 && (
                   <div className="pdf-image-grid mt-3">
                     {featuredImages.map((image, index) => (
@@ -353,7 +402,9 @@ function PortfolioPdfPage() {
               </article>
               );
             })}
-          </div>
+            </div>
+            </div>;
+          })}
         </section>
 
         <section className={sectionClass}>
@@ -368,15 +419,18 @@ function PortfolioPdfPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-slate-700">{certificate.description}</p>
-                {certificate.images.length > 0 && (
+                <div className="pdf-image-grid mt-2">
+                {certificate.images.map((image, index) => (
                   <img
-                    src={certificate.images[0]}
-                    alt={`${certificate.title} preview`}
+                    key={`${image}-${index}`}
+                    src={image}
+                    alt={`${certificate.title} ${index + 1}`}
                     loading="eager"
                     decoding="sync"
-                    className="pdf-image mt-3 max-w-[220px]"
+                    className="pdf-image"
                   />
-                )}
+                ))}
+                </div>
               </article>
             ))}
           </div>
@@ -400,9 +454,6 @@ function PortfolioPdfPage() {
           </section>
         )}
 
-        <footer className="border-t border-slate-300 pt-3 text-center text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
-          RLSMP / Portfolio 2026
-        </footer>
       </div>
     </main>
   );

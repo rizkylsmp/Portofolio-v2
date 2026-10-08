@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { animate } from "animejs";
 import { BiX, BiZoomIn } from "react-icons/bi";
 import { MdArrowForward, MdChevronLeft, MdChevronRight, MdRefresh } from "react-icons/md";
-import { PiDesktopBold, PiGameControllerBold, PiGridFourBold } from "react-icons/pi";
 import { usePlaygroundProjects, type PlaygroundProject } from "../hooks/usePlaygroundProjects";
 import { useImageSwipe } from "../hooks/useImageSwipe";
+import { playgroundKindLabels } from "../services/nakiProjects";
 
 type GridColumns = 3 | 4 | 5;
 
@@ -16,6 +16,8 @@ type PreviewState = {
 
 const ProjectsPage = () => {
   const [filter, setFilter] = React.useState<string | null>(null);
+  const [kind, setKind] = React.useState<PlaygroundProject["kind"] | null>(null);
+  const [niche, setNiche] = React.useState("");
   const [gridColumns, setGridColumns] = React.useState<GridColumns>(3);
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
   const [cardImageIndexes, setCardImageIndexes] = React.useState<Record<string, number>>({});
@@ -33,19 +35,13 @@ const ProjectsPage = () => {
   const filterExit = React.useRef<ReturnType<typeof animate> | null>(null);
   const slideDirection = React.useRef<-1 | 0 | 1>(0);
   const { projects, loading, error, retry } = usePlaygroundProjects();
-  const categories = [...new Set(projects.map((project) => project.category))];
-  const filters = [
-    { value: null, label: "All", icon: <PiGridFourBold /> },
-    ...categories.map((category) => ({
-      value: category,
-      label: category,
-      icon: /game/i.test(category) ? <PiGameControllerBold /> : <PiDesktopBold />,
-    })),
-  ];
+  const typedProjects = kind === null ? projects : projects.filter((project) => project.kind === kind);
+  const categories = [...new Set(typedProjects.map((project) => project.category))];
   const activeFilter = filter && categories.includes(filter) ? filter : null;
-  const visibleProjects = activeFilter === null
-    ? projects
-    : projects.filter((project) => project.category === activeFilter);
+  const categoryProjects = activeFilter === null ? typedProjects : typedProjects.filter((project) => project.category === activeFilter);
+  const niches = [...new Set(categoryProjects.map((project) => project.niche).filter(Boolean))];
+  const activeNiche = kind === "design" && niches.includes(niche) ? niche : "";
+  const visibleProjects = activeNiche ? categoryProjects.filter((project) => project.niche === activeNiche) : categoryProjects;
   const gridClass = {
     3: "lg:grid-cols-3",
     4: "lg:grid-cols-3 xl:grid-cols-4",
@@ -71,15 +67,14 @@ const ProjectsPage = () => {
     cardAnimations.current.forEach((animation) => animation.revert());
   };
 
-  const selectFilter = (value: string | null) => {
+  const changeFilters = (commitState: () => void) => {
     filterExit.current?.revert();
-    if (activeFilter === value) return;
     const cards = Array.from(gridRef.current?.querySelectorAll<HTMLElement>("[data-project-id]") ?? []);
     const commit = () => {
       filterExit.current?.revert();
       captureLayout();
       oldPositions.current.clear();
-      setFilter(value);
+      commitState();
     };
     if (!cards.length || window.matchMedia("(prefers-reduced-motion: reduce)").matches) commit();
     else filterExit.current = animate(cards, {
@@ -105,7 +100,7 @@ const ProjectsPage = () => {
     });
     oldPositions.current.clear();
     return () => cardAnimations.current.forEach((animation) => animation.revert());
-  }, [activeFilter, gridColumns, projectKey]);
+  }, [activeFilter, activeNiche, kind, gridColumns, projectKey]);
 
   const closePreview = React.useCallback(() => {
     if (closing.current) return;
@@ -237,30 +232,50 @@ const ProjectsPage = () => {
         <header className="mb-20 lg:mb-[clamp(5rem,11vw,10rem)]" data-aos="fade-up">
           <p className="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.08em] text-text-tertiary">Selected experiments / {String(projects.length).padStart(2, "0")}</p>
           <h1 className="-ml-[0.035em] max-w-full text-[clamp(3rem,15vw,14rem)] font-medium leading-[0.8] tracking-[-0.075em] text-accent">Playground</h1>
-          <div className="mt-10 flex w-full flex-col items-start justify-between gap-6 lg:ml-auto lg:mt-12 lg:w-[82%] lg:flex-row lg:items-end lg:gap-8 xl:mt-16 xl:w-[72%] xl:gap-12">
+          <div className="mt-10 flex w-full flex-col items-start gap-6 lg:mt-12 lg:gap-8 xl:mt-16">
             <p className="max-w-[35rem] text-[clamp(0.72rem,1vw,0.86rem)] leading-[1.65] text-text-secondary">
               Ruang untuk menampilkan proyek, eksperimen, dan ide yang saya
               kembangkan melalui web maupun game. Setiap karya adalah bagian
               dari proses belajar, mencoba, dan menyelesaikan masalah.
             </p>
-            <div className="flex w-full flex-wrap items-end justify-start gap-6 lg:w-auto lg:flex-nowrap lg:justify-end">
-              <div className="grid gap-2">
-                <span className="font-mono text-[0.58rem] uppercase tracking-[0.08em] text-text-tertiary">Category</span>
-                <div className="flex flex-wrap justify-start gap-2" role="group" aria-label="Filter kategori playground">
-                  {filters.map((item) => (
+            <div className="flex w-full flex-wrap items-end justify-between gap-6">
+              <div className="grid min-w-0 gap-3">
+                <div className="flex flex-wrap gap-1 border-b border-border" role="group" aria-label="Jenis karya">
+                  {([null, "company", "project", "design"] as const).map((value) => (
                     <button
-                      key={item.value === null ? "all" : `category-${item.value}`}
+                      key={value ?? "all"}
                       type="button"
-                      onClick={() => {
-                        selectFilter(item.value);
-                      }}
-                      aria-pressed={activeFilter === item.value}
-                      className={`inline-flex min-h-11 items-center gap-2 border px-3 py-2 font-mono text-[0.66rem] uppercase transition-colors duration-200 ${activeFilter === item.value ? "border-accent bg-accent text-surface" : "border-border bg-surface text-text-primary hover:border-accent hover:bg-accent hover:text-surface"}`}
+                      aria-pressed={kind === value}
+                      onClick={() => { if (kind !== value) changeFilters(() => { setKind(value); setFilter(null); setNiche(""); }); }}
+                      className={`min-h-11 border-b-2 px-3 text-sm transition-colors ${kind === value ? "border-accent text-accent" : "border-transparent text-text-secondary hover:text-accent"}`}
                     >
-                      {item.icon}
-                      {item.label}
+                      {value === null ? "Semua" : playgroundKindLabels[value]}
                     </button>
                   ))}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <label className="grid gap-1 text-xs text-text-secondary">
+                    Kategori
+                    <select value={activeFilter ?? ""} onChange={(event) => {
+                      const value = event.target.value;
+                      changeFilters(() => { setFilter(value || null); setNiche(""); });
+                    }} className="min-h-11 max-w-full border border-border bg-surface px-3 text-sm text-text-primary">
+                      <option value="">Semua kategori</option>
+                      {categories.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </label>
+                  {kind === "design" && niches.length > 0 && (
+                    <label className="grid gap-1 text-xs text-text-secondary">
+                      Subkategori
+                      <select value={activeNiche} onChange={(event) => {
+                        const value = event.target.value;
+                        changeFilters(() => setNiche(value));
+                      }} className="min-h-11 max-w-full border border-border bg-surface px-3 text-sm text-text-primary">
+                        <option value="">Semua subkategori</option>
+                        {niches.map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                    </label>
+                  )}
                 </div>
               </div>
 
@@ -317,7 +332,7 @@ const ProjectsPage = () => {
               >
                 <div className="mb-2 flex justify-between gap-4 font-mono text-[0.66rem] uppercase tracking-[0.08em] text-text-tertiary">
                   <span>[{String(index + 1).padStart(3, "0")}]</span>
-                  <span>{project.category}</span>
+                  <span className="min-w-0 text-right break-words">{playgroundKindLabels[project.kind]} / {project.category}{project.niche ? ` / ${project.niche}` : ""}</span>
                 </div>
 
                 <button
@@ -401,6 +416,7 @@ const ProjectsPage = () => {
                   <div>
                     <h2 className="text-[clamp(1rem,1.5vw,1.35rem)] font-bold leading-tight">{project.title}</h2>
                     <p className="mt-2 line-clamp-2 max-w-[32rem] text-[0.72rem] leading-[1.55] text-text-secondary">{project.description}</p>
+                    {project.techStack.length > 0 && <p className="mt-3 text-xs leading-relaxed text-text-tertiary">{project.techStack.join(" / ")}</p>}
                   </div>
                   {hasLink && (
                     <a className="mt-3 inline-flex min-h-11 min-w-max items-center gap-2 border-b border-accent font-mono text-[0.66rem] font-bold uppercase hover:[&_svg]:translate-x-1" href={project.link} target="_blank" rel="noopener noreferrer" aria-label={`Buka ${project.title} di tab baru`}>
@@ -432,7 +448,7 @@ const ProjectsPage = () => {
           <div className="max-h-[94vh] w-full max-w-[76rem] overflow-y-auto bg-surface text-text-primary" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-8 p-4 sm:px-5">
               <div>
-                <span className="font-mono text-[0.62rem] uppercase tracking-[0.08em] text-text-tertiary">{preview.project.category}</span>
+                <span className="font-mono text-[0.62rem] uppercase tracking-[0.08em] text-text-tertiary">{playgroundKindLabels[preview.project.kind]} / {preview.project.category}{preview.project.niche ? ` / ${preview.project.niche}` : ""}</span>
                 <h2 className="text-[clamp(1.25rem,2vw,2rem)] font-bold">{preview.project.title}</h2>
               </div>
               <button className="grid h-11 w-11 shrink-0 place-items-center text-3xl" type="button" onClick={closePreview} aria-label="Tutup galeri">
@@ -466,7 +482,10 @@ const ProjectsPage = () => {
 
             <div className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:gap-8 sm:px-5">
               <span className="min-w-max font-mono text-[0.65rem] uppercase tracking-[0.08em]">{String(preview.imageIndex + 1).padStart(2, "0")} / {String(preview.project.images.length).padStart(2, "0")}</span>
-              <p className="max-w-[45rem] text-[0.78rem] leading-relaxed text-text-secondary">{preview.project.description}</p>
+              <div className="max-w-[45rem] text-[0.78rem] leading-relaxed text-text-secondary">
+                <p>{preview.project.description}</p>
+                {preview.project.techStack.length > 0 && <p className="mt-3 text-text-tertiary">{preview.project.techStack.join(" / ")}</p>}
+              </div>
             </div>
           </div>
         </div>, document.body

@@ -46,14 +46,9 @@ const ProfilePage = () => {
           <div className="flex flex-col gap-2 text-accent transition-all duration-300">
             <p className="portfolio-kicker">Profile / 01</p>
             <h2 className="-ml-[0.035em] break-words text-[clamp(2.25rem,4.8vw,5rem)] font-medium leading-[0.92] tracking-[-0.055em] text-accent lg:text-[clamp(2rem,3.8vw,4.25rem)]">{profile.name}</h2>
-            <p className="text-base font-medium text-text-primary sm:text-lg">
-              Web Developer &amp; IT Support
-            </p>
-            <p className="w-full text-left text-sm leading-relaxed text-text-secondary">
-              Saya mengembangkan website lewat Naki Code, dari merancang tampilan
-              hingga menghubungkan API dan database. Pengalaman sebagai Staff IT
-              membantu saya memahami kebutuhan pengguna dan menemukan solusi
-              untuk masalah yang mereka hadapi sehari-hari.
+            <p className="text-base font-medium text-text-primary sm:text-lg" dangerouslySetInnerHTML={{ __html: profile.position }} />
+            <p className="w-full whitespace-pre-line text-left text-sm leading-relaxed text-text-secondary">
+              {profile.description}
             </p>
           </div>
           <div className="flex flex-col gap-3">
