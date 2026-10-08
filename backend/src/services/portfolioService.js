@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import bundledPortfolioSeedData from "../seeds/portfolioData.json" with { type: "json" };
 import { config } from "../config/env.js";
 import { getPool } from "../db/pool.js";
@@ -571,10 +572,13 @@ function isValidPortfolioPatch(data) {
   );
 }
 
-async function backupPortfolioData(data) {
+export async function backupPortfolioData(data) {
   if (isEmptyPortfolioData(data)) return;
 
-  const backupDir = path.join(config.backendDir, "backups");
+  // Vercel's deployment filesystem is read-only; only temporary storage is writable.
+  const backupDir = process.env.VERCEL
+    ? path.join(os.tmpdir(), "portfolio-backups")
+    : path.join(config.backendDir, "backups");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   await fs.mkdir(backupDir, { recursive: true });
   await fs.writeFile(

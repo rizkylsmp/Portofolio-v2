@@ -6,7 +6,7 @@
 
 import type { Experience, Project, Certificate, Profile, Skill, ContactConfig } from "../types/content";
 import { AxiosError } from "axios";
-import { apiClient, getApiErrorMessage } from "./apiClient";
+import { apiClient, getApiErrorMessage, getApiErrorData } from "./apiClient";
 import { getSessionToken, logout } from "./authService";
 
 interface PortfolioStore {
@@ -157,8 +157,11 @@ async function persistToServer(sections: ReadonlySet<PortfolioSection>): Promise
   } catch (err) {
     if (err instanceof AxiosError && err.response?.status === 401) {
       logout();
+      throw new Error("Sesi admin sudah tidak valid. Silakan login ulang sebelum menyimpan. Data form belum disimpan.");
     }
-    throw new Error(getApiErrorMessage(err, "Gagal menyimpan data ke backend."));
+    const details = getApiErrorData(err).details;
+    const message = getApiErrorMessage(err, "Gagal menyimpan data ke backend.");
+    throw new Error(typeof details === "string" ? `${message} ${details}` : message);
   }
 }
 

@@ -229,7 +229,7 @@ const ProjectsPage = () => {
   return (
     <div className="min-h-svh overflow-hidden border-t border-border bg-transparent text-text-primary">
       <div className="mx-auto w-full max-w-[104rem] px-4 pb-20 pt-24 sm:px-6 sm:pb-24 sm:pt-28 md:px-10 lg:px-12 lg:pb-28 lg:pt-32 xl:px-16 2xl:px-[5.5rem]">
-        <header className="mb-20 lg:mb-[clamp(5rem,11vw,10rem)]" data-aos="fade-up">
+        <header className="mb-8 lg:mb-10" data-aos="fade-up">
           <p className="mb-6 font-mono text-[0.68rem] uppercase tracking-[0.08em] text-text-tertiary">Selected experiments / {String(projects.length).padStart(2, "0")}</p>
           <h1 className="-ml-[0.035em] max-w-full text-[clamp(3rem,15vw,14rem)] font-medium leading-[0.8] tracking-[-0.075em] text-accent">Playground</h1>
           <div className="mt-10 flex w-full flex-col items-start gap-6 lg:mt-12 lg:gap-8 xl:mt-16">
