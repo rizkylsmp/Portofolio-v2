@@ -572,20 +572,35 @@ function isValidPortfolioPatch(data) {
   );
 }
 
+export function getPortfolioBackupDirectory(backendDir = config.backendDir, env = process.env) {
+  const deployedPath = backendDir.replace(/\\/g, "/");
+  const serverless = env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME || env.LAMBDA_TASK_ROOT ||
+    deployedPath === "/var/task" || deployedPath.startsWith("/var/task/");
+  return serverless ? path.join(os.tmpdir(), "portfolio-backups") : path.join(backendDir, "backups");
+}
+
 export async function backupPortfolioData(data) {
   if (isEmptyPortfolioData(data)) return;
 
   // Vercel's deployment filesystem is read-only; only temporary storage is writable.
-  const backupDir = process.env.VERCEL
-    ? path.join(os.tmpdir(), "portfolio-backups")
-    : path.join(config.backendDir, "backups");
+  let backupDir = getPortfolioBackupDirectory();
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  await fs.mkdir(backupDir, { recursive: true });
-  await fs.writeFile(
-    path.join(backupDir, `portfolio-${timestamp}.json`),
-    JSON.stringify(data, null, 2),
-    "utf-8"
-  );
+  const writeBackup = async () => {
+    await fs.mkdir(backupDir, { recursive: true });
+    await fs.writeFile(
+      path.join(backupDir, `portfolio-${timestamp}.json`),
+      JSON.stringify(data, null, 2),
+      "utf-8"
+    );
+  };
+  try {
+    await writeBackup();
+  } catch (error) {
+    const temporaryDir = path.join(os.tmpdir(), "portfolio-backups");
+    if (backupDir === temporaryDir || !["EROFS", "EACCES", "EPERM", "ENOENT"].includes(error?.code)) throw error;
+    backupDir = temporaryDir;
+    await writeBackup();
+  }
 }
 
 function assertNoUnexpectedBulkDeletion(currentData, nextData) {
