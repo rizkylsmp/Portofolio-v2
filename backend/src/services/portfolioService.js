@@ -25,7 +25,15 @@ export async function readPortfolioData() {
   return readStoredPortfolioData();
 }
 
-async function readStoredPortfolioData(pool = getPool()) {
+async function readStoredPortfolioData(pool) {
+  if (!pool) {
+    const connection = await getPool().getConnection();
+    try {
+      return await readStoredPortfolioData(connection);
+    } finally {
+      connection.release();
+    }
+  }
   const [
     [profileRows],
     [socialRows],

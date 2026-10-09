@@ -420,8 +420,8 @@ html.theme-changing .space-backdrop {
     opacity 180ms ease, transform 180ms ease;
 }
 
-.portfolio-motion button:not(:disabled):active,
-.portfolio-motion [role="button"]:active {
+.portfolio-motion button:not(:disabled):not([data-no-press-scale]):active,
+.portfolio-motion [role="button"]:not([data-no-press-scale]):active {
   scale: 0.96;
   filter: brightness(1.12);
 }

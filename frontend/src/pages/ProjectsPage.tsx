@@ -18,7 +18,7 @@ const ProjectsPage = () => {
   const [filter, setFilter] = React.useState<string | null>(null);
   const [kind, setKind] = React.useState<PlaygroundProject["kind"] | null>(null);
   const [niche, setNiche] = React.useState("");
-  const [gridColumns, setGridColumns] = React.useState<GridColumns>(3);
+  const [gridColumns, setGridColumns] = React.useState<GridColumns>(5);
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
   const [cardImageIndexes, setCardImageIndexes] = React.useState<Record<string, number>>({});
   const gridRef = React.useRef<HTMLDivElement>(null);
@@ -45,7 +45,7 @@ const ProjectsPage = () => {
   const gridClass = {
     3: "lg:grid-cols-3",
     4: "lg:grid-cols-3 xl:grid-cols-4",
-    5: "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+    5: "lg:grid-cols-3 xl:grid-cols-5",
   }[gridColumns];
   const projectKey = visibleProjects.map((project) => project.id).join(",");
   const previewOpen = preview !== null;
@@ -318,7 +318,7 @@ const ProjectsPage = () => {
           <p role="status" className="py-24 text-center text-sm text-text-secondary">Memuat proyek...</p>
         )}
 
-        <div ref={gridRef} className={`grid grid-cols-1 items-start gap-x-4 gap-y-16 sm:grid-cols-2 lg:gap-x-8 lg:gap-y-20 ${gridClass}`} aria-live="polite" aria-busy={loading}>
+        <div ref={gridRef} className={`grid grid-cols-1 items-stretch gap-x-4 gap-y-16 sm:grid-cols-2 lg:gap-x-8 lg:gap-y-20 ${gridClass}`} aria-live="polite" aria-busy={loading}>
           {visibleProjects.map((project, index) => {
             const coverImage = project.images[0];
             const activeImageIndex = Math.min(cardImageIndexes[project.id] ?? 0, Math.max(project.images.length - 1, 0));
@@ -337,7 +337,8 @@ const ProjectsPage = () => {
 
                 <button
                   type="button"
-                  className="group relative block aspect-[4/3] w-full cursor-zoom-in overflow-hidden border border-border bg-surface-tertiary disabled:cursor-default"
+                  data-no-press-scale
+                  className="group relative block aspect-[4/3] w-full shrink-0 cursor-zoom-in overflow-hidden border border-border bg-surface-tertiary disabled:cursor-default"
                   onClick={(event) => {
                     if (!coverImage) return;
                     sourceRef.current = event.currentTarget;
@@ -367,6 +368,7 @@ const ProjectsPage = () => {
                     <>
                       <span
                         role="button"
+                        data-no-press-scale
                         tabIndex={0}
                         className="absolute left-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/65 text-2xl text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                         onClick={(event) => {
@@ -386,6 +388,7 @@ const ProjectsPage = () => {
                       </span>
                       <span
                         role="button"
+                        data-no-press-scale
                         tabIndex={0}
                         className="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/65 text-2xl text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                         onClick={(event) => {
@@ -419,7 +422,7 @@ const ProjectsPage = () => {
                     {project.techStack.length > 0 && <p className="mt-3 text-xs leading-relaxed text-text-tertiary">{project.techStack.join(" / ")}</p>}
                   </div>
                   {hasLink && (
-                    <a className="mt-3 inline-flex min-h-11 min-w-max items-center gap-2 border-b border-accent font-mono text-[0.66rem] font-bold uppercase hover:[&_svg]:translate-x-1" href={project.link} target="_blank" rel="noopener noreferrer" aria-label={`Buka ${project.title} di tab baru`}>
+                    <a className="mt-auto inline-flex min-h-11 min-w-max items-center gap-2 border-b border-accent pt-3 font-mono text-[0.66rem] font-bold uppercase hover:[&_svg]:translate-x-1" href={project.link} target="_blank" rel="noopener noreferrer" aria-label={`Buka ${project.title} di tab baru`}>
                       Visit project
                       <MdArrowForward />
                     </a>

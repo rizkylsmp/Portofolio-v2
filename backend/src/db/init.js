@@ -16,16 +16,21 @@ export async function initializeDatabase() {
     try {
       await initializePool();
       const pool = getPool();
-
-      await createPortfolioTables(pool);
-
-      if (await isPortfolioEmpty(pool)) {
-        const [[backups]] = await pool.query("SELECT COUNT(*) AS count FROM portfolio_backups");
-        if (Number(backups.count) === 0) {
-          const seedData = await readInitialPortfolioData();
-          await writePortfolioData(seedData, { onlyIfEmpty: true });
-          console.log("[portfolio-backend] MySQL normalized tables seeded.");
+      const connection = await pool.getConnection();
+      let seedNeeded = false;
+      try {
+        await createPortfolioTables(connection);
+        if (await isPortfolioEmpty(connection)) {
+          const [[backups]] = await connection.query("SELECT COUNT(*) AS count FROM portfolio_backups");
+          seedNeeded = Number(backups.count) === 0;
         }
+      } finally {
+        connection.release();
+      }
+      if (seedNeeded) {
+        const seedData = await readInitialPortfolioData();
+        await writePortfolioData(seedData, { onlyIfEmpty: true });
+        console.log("[portfolio-backend] MySQL normalized tables seeded.");
       }
 
       return;

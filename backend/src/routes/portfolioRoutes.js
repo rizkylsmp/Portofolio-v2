@@ -7,14 +7,16 @@ import {
 } from "../services/portfolioService.js";
 import { validatePortfolio } from "../validation/portfolio.js";
 import { listPortfolioBackups, readPortfolioBackup } from "../services/backupService.js";
+import { isConnectionCapacityError } from "../db/managedPool.js";
 
 export const portfolioRoutes = Router();
 
-portfolioRoutes.get("/portfolio", async (_req, res) => {
+portfolioRoutes.get("/portfolio", async (_req, res, next) => {
   try {
     const data = await readPortfolioData();
     res.json({ ...data, _versions: portfolioVersions(data) });
   } catch (err) {
+    if (isConnectionCapacityError(err)) return next(err);
     res.status(500).json({
       error: "Gagal membaca data portfolio.",
       details: String(err.message || err),
@@ -22,12 +24,13 @@ portfolioRoutes.get("/portfolio", async (_req, res) => {
   }
 });
 
-portfolioRoutes.put("/admin/portfolio", requireAdmin, async (req, res) => {
+portfolioRoutes.put("/admin/portfolio", requireAdmin, async (req, res, next) => {
   try {
     const data = validatePortfolio(req.body);
     const result = await patchPortfolioData({ ...data, _versions: req.body._versions, _replaceConfirmed: req.body._replaceConfirmed });
     res.json({ ...result, success: true, message: "Data portfolio berhasil disimpan." });
   } catch (err) {
+    if (isConnectionCapacityError(err)) return next(err);
     res.status(err.status || 500).json({
       error: "Gagal menyimpan data portfolio.",
       details: String(err.message || err),
@@ -50,11 +53,12 @@ portfolioRoutes.post("/admin/backups/:id/restore", requireAdmin, async (req, res
   res.json({ ...result, success: true });
 });
 
-portfolioRoutes.patch("/admin/portfolio", requireAdmin, async (req, res) => {
+portfolioRoutes.patch("/admin/portfolio", requireAdmin, async (req, res, next) => {
   try {
     const result = await patchPortfolioData(req.body);
     res.json({ ...result, success: true, message: "Perubahan portfolio berhasil disimpan." });
   } catch (err) {
+    if (isConnectionCapacityError(err)) return next(err);
     res.status(err.status || 500).json({
       error: "Gagal menyimpan perubahan portfolio.",
       details: String(err.message || err),

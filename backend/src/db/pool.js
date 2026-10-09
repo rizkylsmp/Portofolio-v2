@@ -1,15 +1,18 @@
 import mysql from "mysql2/promise";
 import { config } from "../config/env.js";
 import { escapeIdentifier } from "../utils/mysql.js";
+import { createManagedPool } from "./managedPool.js";
 
 let pool;
+let initialization;
 
 export async function initializePool() {
-  if (pool) {
-    await pool.end().catch(() => undefined);
-    pool = undefined;
-  }
+  if (pool) return pool;
+  if (!initialization) initialization = createPool().finally(() => { initialization = undefined; });
+  return initialization;
+}
 
+async function createPool() {
   if (!config.db.managed) {
     const bootstrapPool = mysql.createPool({
       host: config.db.host,
@@ -32,7 +35,7 @@ export async function initializePool() {
     }
   }
 
-  pool = mysql.createPool({
+  const rawPool = mysql.createPool({
     host: config.db.host,
     port: config.db.port,
     user: config.db.user,
@@ -40,14 +43,13 @@ export async function initializePool() {
     database: config.db.name,
     waitForConnections: true,
     connectionLimit: config.db.connectionLimit,
-    // Serverless instances must release their sole managed DB connection when
-    // idle instead of exhausting a low max_user_connections allowance.
     maxIdle: config.db.managed ? 0 : config.db.connectionLimit,
     idleTimeout: 10_000,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
     namedPlaceholders: true,
   });
+  pool = config.db.managed ? createManagedPool(rawPool) : rawPool;
 
   return pool;
 }

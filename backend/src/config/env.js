@@ -55,7 +55,7 @@ export const config = {
     managed: isManagedDatabase,
     // Clever Cloud DEV databases allow very few user connections. Serializing
     // queries is safer for multiple short-lived Vercel instances.
-    connectionLimit: hasMysqlAddon ? 1 : requestedConnectionLimit,
+    connectionLimit: isManagedDatabase ? 1 : requestedConnectionLimit,
   },
   auth: {
     sessionTtlMs: 12 * 60 * 60 * 1000,

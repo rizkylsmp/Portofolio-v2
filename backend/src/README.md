@@ -102,3 +102,22 @@ The seed JSON is statically imported so it is included in the Vercel bundle;
   itself. Keep independent scheduled database backups with your hosting provider.
 - Run `npm test --workspace backend` from the repository root (Node 22+ with
   experimental module mocks). Tests use an in-memory SQL adapter, not the real DB.
+
+## Managed MySQL connections
+
+Managed databases always use one connection per BE instance, whether configured
+through `DB_*` or `MYSQL_ADDON_*`. mysql2 queues work for that connection and the
+BE closes it immediately when no borrowers remain; it does not depend on a
+serverless idle timer. Schema bootstrap borrows one connection for its complete
+query batch. Pool initialization reuses a singleton instead of closing an active
+pool during retries. Static paths such as `/robots.txt` do not initialize MySQL.
+
+Connection acquisition retries capacity errors up to four times with bounded
+backoff and jitter. SQL statements and transactions are not replayed by this
+retry. Persistent capacity exhaustion returns HTTP 503 with `Retry-After: 2`.
+The database user's five-connection quota is shared across all BE instances,
+deployments and other clients; a one-connection pool is not a global semaphore.
+For more than five simultaneous instances, a database connection proxy or a
+higher provider limit may still be necessary. Existing idle connections from an
+older deployment must close before their slots become available. Do not reset
+or reseed content to resolve a connection-capacity issue.
