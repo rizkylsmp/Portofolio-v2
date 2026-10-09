@@ -20,9 +20,12 @@ export async function initializeDatabase() {
       await createPortfolioTables(pool);
 
       if (await isPortfolioEmpty(pool)) {
-        const seedData = await readInitialPortfolioData();
-        await writePortfolioData(seedData);
-        console.log("[portfolio-backend] MySQL normalized tables seeded.");
+        const [[backups]] = await pool.query("SELECT COUNT(*) AS count FROM portfolio_backups");
+        if (Number(backups.count) === 0) {
+          const seedData = await readInitialPortfolioData();
+          await writePortfolioData(seedData, { onlyIfEmpty: true });
+          console.log("[portfolio-backend] MySQL normalized tables seeded.");
+        }
       }
 
       return;
@@ -41,6 +44,20 @@ export async function initializeDatabase() {
 }
 
 async function createPortfolioTables(pool) {
+  await pool.query(`CREATE TABLE IF NOT EXISTS admin_sessions (
+    token_hash CHAR(64) PRIMARY KEY, expires_at BIGINT NOT NULL,
+    INDEX idx_admin_session_expiry (expires_at)
+  ) ENGINE=InnoDB`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS admin_login_attempts (
+    client_key CHAR(64) PRIMARY KEY, attempts INT NOT NULL DEFAULT 0,
+    locked_until BIGINT NOT NULL DEFAULT 0, updated_at BIGINT NOT NULL
+  ) ENGINE=InnoDB`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS portfolio_write_lock (id TINYINT PRIMARY KEY) ENGINE=InnoDB`);
+  await pool.query("INSERT IGNORE INTO portfolio_write_lock (id) VALUES (1)");
+  await pool.query(`CREATE TABLE IF NOT EXISTS portfolio_backups (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, data LONGTEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profile (
       id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
@@ -264,7 +281,6 @@ async function createPortfolioTables(pool) {
     await dropColumnIfExists(pool, "contact_links", columnName);
   }
 
-  await pool.query("UPDATE contact SET heading = 'Get In Touch'");
 }
 
 async function dropColumnIfExists(pool, tableName, columnName) {

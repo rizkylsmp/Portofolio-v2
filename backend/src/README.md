@@ -73,3 +73,32 @@ folder's `vercel.json` clears any static Output Directory override. The local
 development server continues to use `src/index.js`.
 The seed JSON is statically imported so it is included in the Vercel bundle;
 `vercel.json` also allowlists it explicitly for the Express function.
+
+## Admin safety
+
+- Sessions are hashed and stored in `admin_sessions`. Login attempts and expiry
+  are stored in `admin_login_attempts`, shared across serverless instances.
+- GET `/api/portfolio` includes `_versions` for each section. PATCH and PUT must
+  send these versions. A stale section returns HTTP 409 without changing data.
+  Different sections can be edited independently. All writes acquire the
+  `portfolio_write_lock` row inside a transaction before reading and modifying data.
+- Before each write, a full snapshot is stored in `portfolio_backups` within the
+  same transaction. Only the latest 30 snapshots are retained. No admin save
+  depends on writing into `/var/task` or `/tmp`.
+- The admin Backup button lists snapshots, downloads JSON, and offers a
+  confirmation before restoring all sections. Restore also creates a new backup
+  and requires current versions. The API additionally exposes authenticated
+  GET `/api/admin/backups`, GET `/api/admin/backups/:id`, and POST
+  `/api/admin/backups/:id/restore` with `{ confirmed: true, _versions: ... }`.
+- JSON imports are schema-validated on both sides, previewed before replacement,
+  and need `_replaceConfirmed: true` to explicitly clear multiple sections.
+  FE and BE ship their own identical `src/validation/portfolio.js` so Vercel root
+  directories can deploy independently. The schema parity test prevents drift;
+  update both copies when changing the content contract.
+- Bootstrap creates the new tables without dropping existing content. Existing
+  in-memory sessions cannot migrate; sign in again after deploying FE and BE.
+  MySQL must permit CREATE/SELECT/INSERT/UPDATE/DELETE on these tables.
+- These snapshots protect against accidental edits, not loss of the database
+  itself. Keep independent scheduled database backups with your hosting provider.
+- Run `npm test --workspace backend` from the repository root (Node 22+ with
+  experimental module mocks). Tests use an in-memory SQL adapter, not the real DB.

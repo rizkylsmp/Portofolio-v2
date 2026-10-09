@@ -2,8 +2,12 @@
 // Admin Panel - Portfolio Content Management
 // ==========================================
 
-import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef, useId, cloneElement, isValidElement } from "react";
+import { AdminForm } from "../components/AdminForm";
+import { confirmAdminLeave } from "../utils/adminLeave";
+import { validatePortfolio } from "../validation/portfolio.js";
+import { useNavigate, useBlocker } from "react-router-dom";
+import { AdminBackups } from "../components/AdminBackups";
 import { logout } from "../services/authService";
 import type { Experience, Project, Certificate, Profile, SocialMedia, Skill, ContactConfig, ContactLink } from "../types/content";
 import {
@@ -57,6 +61,8 @@ import {
   MdAddCircle,
   MdContactMail,
   MdDragIndicator,
+  MdContentPaste,
+  MdHistory,
 } from "react-icons/md";
 import { GiSkills } from "react-icons/gi";
 import {
@@ -86,11 +92,19 @@ const AdminPage = () => {
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isFormDirty, setIsFormDirty] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{ text: string; counts: Record<string, number> } | null>(null);
+  const [showBackups, setShowBackups] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const blocker = useBlocker(() => !!document.querySelector('form[data-admin-dirty="true"], form[data-admin-busy="true"]'));
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+    if (confirmAdminLeave()) blocker.proceed(); else blocker.reset();
+  }, [blocker]);
+  const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (notificationTimer.current) clearTimeout(notificationTimer.current); }, []);
 
   // Load data
   const refreshData = () => {
@@ -104,41 +118,25 @@ const AdminPage = () => {
 
   const notify = (msg: string, type: "success" | "error" = "success") => {
     setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 3000);
+    if (notificationTimer.current) clearTimeout(notificationTimer.current);
+    notificationTimer.current = setTimeout(() => setNotification(null), type === "error" ? 12000 : 3000);
   };
 
   const openFormModal = (id: string | null) => {
     setEditingId(id);
-    setIsFormDirty(false);
     setShowModal(true);
   };
 
   const closeFormModal = (force = false): boolean => {
-    if (
-      !force &&
-      isFormDirty &&
-      !window.confirm("Perubahan belum disimpan. Yakin ingin menutup form?")
-    ) {
+    if (!force && !confirmAdminLeave()) {
       return false;
     }
 
     setShowModal(false);
     setEditingId(null);
-    setIsFormDirty(false);
     return true;
   };
 
-  useEffect(() => {
-    if (!showModal || !isFormDirty) return;
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [showModal, isFormDirty]);
 
   // ---- Export / Import ----
   const handleExport = () => {
@@ -157,15 +155,13 @@ const AdminPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    if (file.size > 2 * 1024 * 1024) { notify("Ukuran JSON maksimal 2 MB.", "error"); e.target.value = ""; return; }
+    reader.onerror = () => notify("File tidak dapat dibaca.", "error");
+    reader.onload = (ev) => {
       const text = ev.target?.result as string;
       try {
-        if (await importAllData(text)) {
-          refreshData();
-          notify("Data berhasil di-import ke database!");
-        } else {
-          notify("Gagal import data. File tidak valid.", "error");
-        }
+        const data = validatePortfolio(JSON.parse(text)) as Record<string, unknown>;
+        setPendingImport({ text, counts: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, Array.isArray(value) ? value.length : value ? 1 : 0])) });
       } catch (err) {
         notify(getAdminErrorMessage(err), "error");
       }
@@ -191,6 +187,7 @@ const AdminPage = () => {
         <div className="max-w-7xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <button
+              aria-label="Kembali ke portofolio"
               onClick={() => navigate("/")}
               className="p-2 hover:bg-surface/20 rounded-lg transition-colors cursor-pointer"
             >
@@ -210,7 +207,7 @@ const AdminPage = () => {
               <MdFileDownload /> <span className="hidden sm:inline">Export</span>
             </button>
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => { if (confirmAdminLeave()) fileInputRef.current?.click(); }}
               className="flex items-center gap-1 px-3 py-2 bg-surface/20 hover:bg-surface/30 rounded-lg text-sm transition-colors cursor-pointer"
               title="Import Data"
             >
@@ -223,9 +220,10 @@ const AdminPage = () => {
               onChange={handleImport}
               className="hidden"
             />
+            <button title="Backup" aria-label="Backup" onClick={() => { if (confirmAdminLeave()) setShowBackups(true); }} className="p-2 rounded-lg hover:bg-surface/30"><MdHistory size={22} /></button>
             <div className="w-px h-6 bg-surface/30 mx-1" />
             <button
-              onClick={() => { logout(); navigate(0); }}
+              onClick={() => { if (confirmAdminLeave()) { logout(); navigate(0); } }}
               className="flex items-center gap-1 px-3 py-2 bg-surface/20 hover:bg-surface/30 rounded-lg text-sm transition-colors cursor-pointer"
               title="Logout"
             >
@@ -238,7 +236,8 @@ const AdminPage = () => {
       {/* Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-[100] px-6 py-3 rounded-xl shadow-2xl text-white font-medium animate-in slide-in-from-right duration-300 ${
+          role={notification.type === "error" ? "alert" : "status"}
+          className={`fixed top-4 right-4 z-[100] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto break-words px-6 py-3 rounded-xl shadow-2xl text-white font-medium animate-in slide-in-from-right duration-300 ${
             notification.type === "success" ? "bg-green-500" : "bg-red-500"
           }`}
         >
@@ -255,9 +254,23 @@ const AdminPage = () => {
                 <button
                   key={tab.key}
                   role="tab"
+                  id={`admin-tab-${tab.key}`}
+                  aria-label={tab.label}
+                  aria-controls={`admin-panel-${tab.key}`}
+                  tabIndex={activeTab === tab.key ? 0 : -1}
                   aria-selected={activeTab === tab.key}
+                  onKeyDown={(event) => {
+                    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                    event.preventDefault();
+                    if (!confirmAdminLeave()) return;
+                    const index = tabs.findIndex((item) => item.key === tab.key);
+                    const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+                    setActiveTab(tabs[next].key);
+                    document.getElementById(`admin-tab-${tabs[next].key}`)?.focus();
+                  }}
                   onClick={() => {
-                    if (showModal && !closeFormModal()) return;
+                    if (activeTab === tab.key || !confirmAdminLeave()) return;
+                    if (showModal) closeFormModal(true);
                     setActiveTab(tab.key);
                   }}
                   className={`flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-t-xl border border-b-0 px-3 py-3 font-medium transition-colors cursor-pointer sm:px-5 ${
@@ -281,7 +294,7 @@ const AdminPage = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div role="tabpanel" id={`admin-panel-${activeTab}`} aria-labelledby={`admin-tab-${activeTab}`} className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Profile Tab */}
         {activeTab === "profile" && (
           <ProfileForm
@@ -380,7 +393,6 @@ const AdminPage = () => {
           onClose={() => { closeFormModal(); }}
           closeOnBackdrop={false}
           maxWidthClass={activeTab === "experience" ? "max-w-5xl" : "max-w-3xl"}
-          onContentChange={() => setIsFormDirty(true)}
         >
           {activeTab === "experience" && (
             <ExperienceForm
@@ -411,41 +423,59 @@ const AdminPage = () => {
 
       {/* Delete Confirmation */}
       {showDeleteConfirm && (
-        <Modal onClose={() => setShowDeleteConfirm(null)}>
+        <Modal onClose={() => { if (confirmAdminLeave()) setShowDeleteConfirm(null); }}>
+          <AdminForm onSubmit={async () => {
+            try {
+              if (activeTab === "experience") await deleteExperience(showDeleteConfirm);
+              if (activeTab === "projects") await deleteProject(showDeleteConfirm);
+              if (activeTab === "certificates") await deleteCertificate(showDeleteConfirm);
+              setShowDeleteConfirm(null); refreshData(); notify("Data berhasil dihapus!"); return true;
+            } catch (error) { notify(getAdminErrorMessage(error), "error"); return false; }
+          }}>
           <div className="text-center p-4 sm:p-6">
             <PiWarningCircleBold className="mx-auto mb-4 text-5xl text-red-500" />
             <h3 className="text-xl font-bold text-accent mb-2">Hapus Data?</h3>
-            <p className="text-text-secondary mb-6">Data yang dihapus tidak dapat dikembalikan.</p>
+            <p className="text-text-secondary mb-6">Data ini akan dihapus. Salinan sebelumnya disimpan dalam backup.</p>
             <div className="flex flex-col-reverse gap-3 justify-center sm:flex-row">
               <button
+                type="button"
                 onClick={() => setShowDeleteConfirm(null)}
                 className="w-full px-5 py-2 border border-border rounded-xl hover:bg-surface-secondary transition-colors cursor-pointer sm:w-auto"
               >
                 Batal
               </button>
               <button
-                onClick={async () => {
-                  try {
-                    if (activeTab === "experience") await deleteExperience(showDeleteConfirm);
-                    if (activeTab === "projects") await deleteProject(showDeleteConfirm);
-                    if (activeTab === "certificates") await deleteCertificate(showDeleteConfirm);
-                    if (activeTab === "skills") await deleteSkill(showDeleteConfirm);
-                    setShowDeleteConfirm(null);
-                    refreshData();
-                    notify("Data berhasil dihapus dari database!");
-                  } catch (err) {
-                    notify(getAdminErrorMessage(err), "error");
-                  }
-                }}
+                type="submit"
                 className="w-full px-5 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors cursor-pointer sm:w-auto"
               >
                 Hapus
               </button>
             </div>
           </div>
+          </AdminForm>
         </Modal>
       )}
-
+      {pendingImport && <Modal onClose={() => { if (confirmAdminLeave()) setPendingImport(null); }}>
+        <AdminForm onSubmit={async () => {
+          try {
+            if (!await importAllData(pendingImport.text)) throw new Error("File tidak valid.");
+            refreshData(); setPendingImport(null); notify("Data berhasil di-import!"); return true;
+          } catch (error) { notify(getAdminErrorMessage(error), "error"); return false; }
+        }}>
+          <div className="p-6 space-y-4">
+            <h2 className="text-xl font-bold">Ganti Data Portofolio?</h2>
+            <p>Seluruh bagian akan diganti dengan isi file berikut.</p>
+            <dl>{Object.entries(pendingImport.counts).map(([key, count]) => <div key={key} className="flex justify-between"><dt>{key}</dt><dd>{count}</dd></div>)}</dl>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setPendingImport(null)}>Batal</button>
+              <button type="submit" className="px-4 py-2 bg-accent text-surface rounded-lg">Import dan Ganti Data</button>
+            </div>
+          </div>
+        </AdminForm>
+      </Modal>}
+      {showBackups && <Modal onClose={() => { if (confirmAdminLeave()) setShowBackups(false); }}>
+        <AdminBackups onSaved={() => { refreshData(); setShowBackups(false); notify("Backup berhasil dipulihkan!"); }} />
+      </Modal>}
     </div>
   );
 };
@@ -459,29 +489,53 @@ function Modal({
   onClose,
   closeOnBackdrop = true,
   maxWidthClass = "max-w-3xl",
-  onContentChange,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   closeOnBackdrop?: boolean;
   maxWidthClass?: string;
-  onContentChange?: () => void;
 }) {
+  const dialog = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; }, [onClose]);
+  const titleId = useId();
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const heading = dialog.current?.querySelector("h2, h3");
+    if (heading) heading.id = titleId;
+    const overlay = dialog.current?.parentElement;
+    const background = Array.from(overlay?.parentElement?.children || []).filter((element) => element !== overlay && !["alert", "status"].includes(element.getAttribute("role") || ""));
+    const previousInert = background.map((element) => element.hasAttribute("inert"));
+    background.forEach((element) => element.setAttribute("inert", ""));
+    const focusable = () => Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]') || []).filter((item) => item.getClientRects().length);
+    (focusable()[0] || dialog.current)?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); close.current(); }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) { event.preventDefault(); dialog.current?.focus(); return; }
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => { document.removeEventListener("keydown", handleKey); background.forEach((element, index) => { if (!previousInert[index]) element.removeAttribute("inert"); }); document.body.style.overflow = overflow; previous?.focus(); };
+  }, [titleId]);
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={closeOnBackdrop ? onClose : undefined}
     >
       <div
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className={`my-3 min-w-0 w-full ${maxWidthClass} max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface shadow-2xl animate-in zoom-in-95 duration-200 sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl`}
         onClick={(e) => e.stopPropagation()}
-        onClickCapture={(e) => {
-          const button = (e.target as HTMLElement).closest("button");
-          if (button?.type === "button" && button.dataset.modalAction !== "close") {
-            onContentChange?.();
-          }
-        }}
-        onChange={onContentChange}
       >
         {children}
       </div>
@@ -494,12 +548,14 @@ function Modal({
 // ==========================================
 
 function FormField({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
+  const id = useId();
+  const direct = isValidElement<{ id?: string }>(children) && typeof children.type === "string" && ["input", "textarea", "select"].includes(children.type);
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-text-secondary">
+      <label htmlFor={direct ? id : undefined} className="block text-sm font-medium text-text-secondary">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      {children}
+      {direct ? cloneElement(children, { id }) : children}
     </div>
   );
 }
@@ -531,6 +587,9 @@ function ImageUrlList({
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadingRef = useRef(false);
+  const imagesRef = useRef(images);
+  useEffect(() => { imagesRef.current = images; }, [images]);
   const canAddImage = !maxImages || images.length < maxImages;
   const addImage = () => {
     if (!canAddImage) return;
@@ -550,27 +609,65 @@ function ImageUrlList({
     onChange(copy);
   };
   const handleFiles = async (files: File[]) => {
+    if (uploadingRef.current || fileInputRef.current?.closest("fieldset")?.disabled) return;
     const imageFiles = files.filter((file) => file.type.startsWith("image/"));
     if (imageFiles.length === 0) {
       setUploadError("File yang dipilih harus berupa gambar.");
       return;
     }
 
+    const selectedFiles = maxImages === 1 ? imageFiles.slice(0, 1) : imageFiles;
+    if (selectedFiles.length > 10) {
+      setUploadError("Maksimal 10 gambar dalam satu upload.");
+      return;
+    }
+    if (selectedFiles.some((file) => file.size > 8 * 1024 * 1024)) {
+      setUploadError("Ukuran gambar maksimal 8 MB per file.");
+      return;
+    }
+    if (maxImages && maxImages > 1 && imagesRef.current.filter(Boolean).length + selectedFiles.length > maxImages) {
+      setUploadError(`Maksimal ${maxImages} gambar.`);
+      return;
+    }
+
+    uploadingRef.current = true;
+    const form = fileInputRef.current?.closest("form");
+    form?.dispatchEvent(new CustomEvent("admin-upload", { detail: 1 }));
     setIsUploading(true);
     setUploadError(null);
     try {
-      const urls = await uploadImages(uploadTarget, imageFiles);
+      const urls = await uploadImages(uploadTarget, selectedFiles);
       if (maxImages === 1) {
-        onChange(urls[0] ? [urls[0]] : images);
+        onChange(urls[0] ? [urls[0]] : imagesRef.current);
         return;
       }
 
-      const nextImages = [...images.filter(Boolean), ...urls];
+      const nextImages = [...imagesRef.current.filter(Boolean), ...urls];
       onChange(maxImages ? nextImages.slice(0, maxImages) : nextImages);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Gagal upload gambar.");
     } finally {
+      uploadingRef.current = false;
       setIsUploading(false);
+      form?.dispatchEvent(new CustomEvent("admin-upload", { detail: -1 }));
+    }
+  };
+  const pasteFromClipboard = async () => {
+    if (uploadingRef.current || fileInputRef.current?.closest("fieldset")?.disabled) return;
+    try {
+      if (!navigator.clipboard?.read) throw new Error("Gunakan Ctrl+V pada area upload untuk paste gambar.");
+      const items = await navigator.clipboard.read();
+      const files: File[] = [];
+      for (const item of items) {
+        const type = item.types.find((value) => value.startsWith("image/"));
+        if (!type) continue;
+        const blob = await item.getType(type);
+        files.push(new File([blob], `clipboard-${Date.now()}-${files.length}.${type.split("/")[1]}`, { type }));
+      }
+      if (!files.length) throw new Error("Clipboard tidak berisi gambar. Copy gambar atau screenshot lalu paste kembali.");
+      await handleFiles(files);
+    } catch (err) {
+      setUploadError(err instanceof Error && err.name !== "NotAllowedError" ? err.message : "Akses clipboard tidak diizinkan. Gunakan Ctrl+V pada area upload.");
     }
   };
   const extractPastedImages = (event: React.ClipboardEvent<HTMLDivElement>): File[] => {
@@ -598,17 +695,10 @@ function ImageUrlList({
     >
       {allowUpload && (
         <div
-          role="button"
           tabIndex={0}
           title="Paste, drag & drop, atau pilih gambar"
           aria-label="Upload gambar"
-          onClick={() => fileInputRef.current?.click()}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              fileInputRef.current?.click();
-            }
-          }}
+          onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.focus(); }}
           onDragEnter={(event) => {
             event.preventDefault();
             setIsDragging(true);
@@ -619,30 +709,40 @@ function ImageUrlList({
           }}
           onDragLeave={(event) => {
             event.preventDefault();
-            setIsDragging(false);
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsDragging(false);
           }}
           onDrop={(event) => {
             event.preventDefault();
             setIsDragging(false);
             void handleFiles(Array.from(event.dataTransfer.files));
           }}
-          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-5 text-center transition-colors ${
+          aria-busy={isUploading}
+          className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed px-4 py-6 text-center outline-none focus-visible:border-accent transition-colors ${
             isDragging
               ? "border-accent bg-accent/10 text-accent"
               : "border-border bg-surface-secondary text-text-secondary hover:border-accent/60 hover:bg-accent/5"
           }`}
         >
-          <MdFileUpload size={24} className="text-accent" />
+          <MdFileUpload size={28} className="text-accent" />
           <div className="space-y-1">
             <p className="text-sm font-medium text-accent">
               {isUploading ? "Mengupload gambar..." : "Upload gambar"}
             </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button type="button" disabled={isUploading} onClick={() => fileInputRef.current?.click()} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm disabled:opacity-50">
+              <MdImage size={18} /> Pilih gambar
+            </button>
+            <button type="button" disabled={isUploading} onClick={() => { void pasteFromClipboard(); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm disabled:opacity-50">
+              <MdContentPaste size={18} /> Paste
+            </button>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
             multiple={maxImages !== 1}
+            disabled={isUploading}
             className="hidden"
             onChange={(event) => {
               const files = Array.from(event.target.files || []);
@@ -653,40 +753,47 @@ function ImageUrlList({
         </div>
       )}
       {uploadError && (
-        <p className="text-sm text-red-500">{uploadError}</p>
+        <p role="alert" className="text-sm text-red-500">{uploadError}</p>
       )}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {images.map((img, idx) => (
-        <div key={idx} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex-1 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+        <div key={idx} className="relative flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface-secondary p-2">
+          <div className="flex min-w-0 flex-col gap-2">
             {img && (
               <img
                 src={img}
-                alt=""
-                className="w-10 h-10 rounded-lg object-cover border border-border flex-shrink-0"
-                onError={(e) => (e.currentTarget.style.display = "none")}
+                alt={`Preview gambar ${idx + 1}`}
+                className="aspect-[4/3] w-full rounded object-contain border border-border bg-surface"
               />
             )}
             <input
               type="text"
               value={img}
+              disabled={isUploading}
               onChange={(e) => updateImage(idx, e.target.value)}
               placeholder="URL gambar atau path lokal..."
-              className={inputClass + " flex-1"}
+              aria-label={`URL gambar ${idx + 1}`}
+              className={inputClass + " text-xs"}
             />
           </div>
           <button
             type="button"
             onClick={() => removeImage(idx)}
+            disabled={isUploading}
+            aria-label={`Hapus gambar ${idx + 1}`}
+            title="Hapus gambar"
             className="self-end sm:self-auto p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
           >
             <MdRemoveCircle size={20} />
           </button>
         </div>
       ))}
+      </div>
       {canAddImage && (
         <button
           type="button"
           onClick={addImage}
+          disabled={isUploading}
           className="flex items-center gap-1 text-sm text-accent hover:text-accent-hover transition-colors cursor-pointer"
         >
           <MdAddCircle size={18} /> Tambah Gambar
@@ -782,10 +889,10 @@ function ExperienceList({
             <p className="text-text-tertiary text-sm">{item.location}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0 self-end sm:self-auto">
-            <button onClick={() => onEdit(item.id)} className="p-2 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
+            <button aria-label={`Edit ${item.company}`} title="Edit" onClick={() => onEdit(item.id)} className="p-2 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
               <MdEdit size={20} />
             </button>
-            <button onClick={() => onDelete(item.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+            <button aria-label={`Hapus ${item.company}`} title="Hapus" onClick={() => onDelete(item.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
               <MdDelete size={20} />
             </button>
           </div>
@@ -860,18 +967,20 @@ function ExperienceForm({
         await addExperience(data);
       }
       onSaved();
+      return true;
     } catch (err) {
       onError(err);
+      return false;
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <AdminForm draft={{ company, companyDescription, position, period, location, responsibilities, companyLogo, images, skills }} onSubmit={handleSubmit}>
       <div className="flex items-center justify-between p-4 border-b border-border sm:p-6">
         <h2 className="text-xl font-bold text-accent">
           {editId ? "Edit Experience" : "Tambah Experience"}
         </h2>
-        <button type="button" data-modal-action="close" onClick={onCancel} className="p-2 hover:bg-surface-secondary rounded-lg transition-colors cursor-pointer">
+        <button type="button" aria-label="Tutup form" data-modal-action="close" onClick={onCancel} className="p-2 hover:bg-surface-secondary rounded-lg transition-colors cursor-pointer">
           <MdClose size={24} />
         </button>
       </div>
@@ -979,11 +1088,14 @@ function ExperienceForm({
                     setSkills(copy);
                   }}
                   placeholder="Nama skill"
+                  aria-label={`Skill pengalaman ${idx + 1}`}
                   className={inputClass + " flex-1"}
                 />
                 <button
                   type="button"
                   onClick={() => setSkills(skills.filter((_, i) => i !== idx))}
+                  aria-label={`Hapus skill pengalaman ${idx + 1}`}
+                  title="Hapus skill"
                   className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
                 >
                   <MdRemoveCircle size={18} />
@@ -1009,7 +1121,7 @@ function ExperienceForm({
           <MdSave size={18} /> Simpan
         </button>
       </div>
-    </form>
+    </AdminForm>
   );
 }
 
@@ -1138,10 +1250,10 @@ function ProjectList({
               </div>
             </div>
             <div className="flex gap-1 flex-shrink-0 self-end sm:self-auto">
-              <button onClick={() => onEdit(item.id)} className="p-2 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
+              <button aria-label={`Edit ${item.title}`} title="Edit" onClick={() => onEdit(item.id)} className="p-2 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
                 <MdEdit size={18} />
               </button>
-              <button onClick={() => onDelete(item.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+              <button aria-label={`Hapus ${item.title}`} title="Hapus" onClick={() => onDelete(item.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
                 <MdDelete size={18} />
               </button>
             </div>
@@ -1203,18 +1315,20 @@ function ProjectForm({
         await addProject(data);
       }
       onSaved();
+      return true;
     } catch (err) {
       onError(err);
+      return false;
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <AdminForm draft={{ title, description, images, techIcons, link, buttonText, category, aos }} onSubmit={handleSubmit}>
       <div className="flex items-center justify-between p-4 border-b border-border sm:p-6">
         <h2 className="text-xl font-bold text-accent">
           {editId ? "Edit Project" : "Tambah Project"}
         </h2>
-        <button type="button" data-modal-action="close" onClick={onCancel} className="p-2 hover:bg-surface-secondary rounded-lg transition-colors cursor-pointer">
+        <button type="button" aria-label="Tutup form" data-modal-action="close" onClick={onCancel} className="p-2 hover:bg-surface-secondary rounded-lg transition-colors cursor-pointer">
           <MdClose size={24} />
         </button>
       </div>
@@ -1260,6 +1374,7 @@ function ProjectForm({
                 key={tech.value}
                 type="button"
                 onClick={() => toggleTech(tech.value)}
+                aria-pressed={techIcons.includes(tech.value)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all cursor-pointer ${
                   techIcons.includes(tech.value)
                     ? "bg-accent text-surface"
@@ -1286,7 +1401,7 @@ function ProjectForm({
           <MdSave size={18} /> Simpan
         </button>
       </div>
-    </form>
+    </AdminForm>
   );
 }
 
@@ -1328,10 +1443,10 @@ function CertificateList({
               </div>
             </div>
             <div className="flex gap-1 flex-shrink-0 self-end sm:self-auto">
-              <button onClick={() => onEdit(item.id)} className="p-2 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
+              <button aria-label={`Edit ${item.title}`} title="Edit" onClick={() => onEdit(item.id)} className="p-2 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
                 <MdEdit size={18} />
               </button>
-              <button onClick={() => onDelete(item.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+              <button aria-label={`Hapus ${item.title}`} title="Hapus" onClick={() => onDelete(item.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
                 <MdDelete size={18} />
               </button>
             </div>
@@ -1375,18 +1490,20 @@ function CertificateForm({
         await addCertificate(data);
       }
       onSaved();
+      return true;
     } catch (err) {
       onError(err);
+      return false;
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <AdminForm draft={{ title, description, images }} onSubmit={handleSubmit}>
       <div className="flex items-center justify-between p-4 border-b border-border sm:p-6">
         <h2 className="text-xl font-bold text-accent">
           {editId ? "Edit Sertifikat" : "Tambah Sertifikat"}
         </h2>
-        <button type="button" data-modal-action="close" onClick={onCancel} className="p-2 hover:bg-surface-secondary rounded-lg transition-colors cursor-pointer">
+        <button type="button" aria-label="Tutup form" data-modal-action="close" onClick={onCancel} className="p-2 hover:bg-surface-secondary rounded-lg transition-colors cursor-pointer">
           <MdClose size={24} />
         </button>
       </div>
@@ -1418,7 +1535,7 @@ function CertificateForm({
           <MdSave size={18} /> Simpan
         </button>
       </div>
-    </form>
+    </AdminForm>
   );
 }
 
@@ -1456,8 +1573,10 @@ function ProfileForm({
         resumeLabel,
       });
       onSaved();
+      return true;
     } catch (err) {
       onError(err);
+      return false;
     }
   };
 
@@ -1476,7 +1595,7 @@ function ProfileForm({
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <AdminForm draft={{ name, position, description, photo, socialMedia, resumeUrl, resumeLabel }} onSubmit={handleSubmit}>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold text-accent">Edit Profile</h2>
         <button
@@ -1513,6 +1632,7 @@ function ProfileForm({
                 value={photo}
                 onChange={(e) => setPhoto(e.target.value)}
                 placeholder="URL foto profil..."
+                aria-label="URL foto profil"
                 className={inputClass + " text-xs"}
               />
             </div>
@@ -1583,6 +1703,7 @@ function ProfileForm({
                   </span>
                   <select
                     value={sm.type}
+                    aria-label={`Jenis media sosial ${idx + 1}`}
                     onChange={(e) => updateSocialMedia(idx, "type", e.target.value)}
                     className={selectClass + " w-full sm:w-36 flex-shrink-0"}
                   >
@@ -1597,6 +1718,7 @@ function ProfileForm({
                   <input
                     type="text"
                     value={sm.url}
+                    aria-label={`URL media sosial ${idx + 1}`}
                     onChange={(e) => updateSocialMedia(idx, "url", e.target.value)}
                     placeholder={sm.type === "email" ? "mailto:email@example.com" : "https://..."}
                     className={inputClass + " flex-1 min-w-0"}
@@ -1604,6 +1726,7 @@ function ProfileForm({
                   <button
                     type="button"
                     onClick={() => removeSocialMedia(idx)}
+                    aria-label={`Hapus media sosial ${idx + 1}`}
                     className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer flex-shrink-0"
                     title="Hapus"
                   >
@@ -1640,7 +1763,7 @@ function ProfileForm({
           </div>
         </div>
       </div>
-    </form>
+    </AdminForm>
   );
 }
 
@@ -1673,11 +1796,13 @@ function SkillsManager({
   };
 
   const openAdd = () => {
+    if (!confirmAdminLeave()) return;
     resetForm();
     setShowForm(true);
   };
 
   const openEdit = (skill: Skill) => {
+    if (!confirmAdminLeave()) return;
     setEditingSkill(skill);
     setName(skill.name);
     setSrc(skill.src);
@@ -1698,8 +1823,10 @@ function SkillsManager({
       }
       resetForm();
       onRefresh();
+      return true;
     } catch (err) {
       notify(getAdminErrorMessage(err), "error");
+      return false;
     }
   };
 
@@ -1728,7 +1855,7 @@ function SkillsManager({
 
       {/* Add/Edit Form */}
       {showForm && (
-        <form onSubmit={handleSave} className="bg-surface-secondary border border-border rounded-xl p-4 mb-6 space-y-4 sm:p-5">
+        <AdminForm key={editingSkill?.id || "new"} draft={{ name, src, alt }} onSubmit={handleSave} contentClassName="space-y-4" className="bg-surface-secondary border border-border rounded-xl p-4 mb-6 sm:p-5">
           <h3 className="font-semibold text-accent">{editingSkill ? "Edit Skill" : "Tambah Skill Baru"}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FormField label="Nama Skill" required>
@@ -1751,11 +1878,11 @@ function SkillsManager({
             <button type="submit" className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-accent text-surface rounded-xl hover:bg-accent-hover transition-colors cursor-pointer sm:w-auto">
               <MdSave size={18} /> Simpan
             </button>
-            <button type="button" onClick={resetForm} className="w-full px-4 py-2 border border-border rounded-xl hover:bg-surface-secondary transition-colors cursor-pointer sm:w-auto">
+            <button type="button" onClick={() => { if (confirmAdminLeave()) resetForm(); }} className="w-full px-4 py-2 border border-border rounded-xl hover:bg-surface-secondary transition-colors cursor-pointer sm:w-auto">
               Batal
             </button>
           </div>
-        </form>
+        </AdminForm>
       )}
 
       {/* Skills Grid */}
@@ -1778,11 +1905,11 @@ function SkillsManager({
                 onError={(e) => (e.currentTarget.style.display = "none")}
               />
               <span className="text-sm font-medium text-accent text-center">{skill.name}</span>
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => openEdit(skill)} className="p-1.5 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
+              <div className="absolute top-2 right-2 flex gap-1 md:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                <button aria-label={`Edit skill ${skill.name}`} title="Edit" onClick={() => openEdit(skill)} className="p-1.5 text-accent hover:bg-accent/10 rounded-lg transition-colors cursor-pointer">
                   <MdEdit size={16} />
                 </button>
-                <button onClick={() => setShowDeleteId(skill.id)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+                <button aria-label={`Hapus skill ${skill.name}`} title="Hapus" onClick={() => setShowDeleteId(skill.id)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
                   <MdDelete size={16} />
                 </button>
               </div>
@@ -1793,20 +1920,22 @@ function SkillsManager({
 
       {/* Delete Confirmation */}
       {showDeleteId && (
-        <Modal onClose={() => setShowDeleteId(null)}>
+        <Modal onClose={() => { if (confirmAdminLeave()) setShowDeleteId(null); }}>
+          <AdminForm onSubmit={async () => handleDelete(showDeleteId)}>
           <div className="text-center p-4 sm:p-6">
             <PiWarningCircleBold className="mx-auto mb-4 text-5xl text-red-500" />
             <h3 className="text-xl font-bold text-accent mb-2">Hapus Skill?</h3>
             <p className="text-text-secondary mb-6">Skill ini akan dihapus dari daftar.</p>
             <div className="flex flex-col-reverse gap-3 justify-center sm:flex-row">
-              <button onClick={() => setShowDeleteId(null)} className="w-full px-5 py-2 border border-border rounded-xl hover:bg-surface-secondary transition-colors cursor-pointer sm:w-auto">
+              <button type="button" onClick={() => setShowDeleteId(null)} className="w-full px-5 py-2 border border-border rounded-xl hover:bg-surface-secondary transition-colors cursor-pointer sm:w-auto">
                 Batal
               </button>
-              <button onClick={() => handleDelete(showDeleteId)} className="w-full px-5 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors cursor-pointer sm:w-auto">
+              <button type="submit" className="w-full px-5 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors cursor-pointer sm:w-auto">
                 Hapus
               </button>
             </div>
           </div>
+          </AdminForm>
         </Modal>
       )}
     </div>
@@ -1839,8 +1968,10 @@ function ContactConfigForm({
         links,
       });
       onSaved();
+      return true;
     } catch (err) {
       onError(err);
+      return false;
     }
   };
 
@@ -1859,7 +1990,7 @@ function ContactConfigForm({
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <AdminForm draft={{ heading, subheading, links }} onSubmit={handleSubmit}>
       <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold text-accent">Edit Contact Page</h2>
         <button
@@ -1898,7 +2029,7 @@ function ContactConfigForm({
               <div key={idx} className="bg-surface border border-border rounded-xl p-4 space-y-3">
                 <div className="flex min-w-0 justify-between items-center gap-3">
                   <span className="text-sm font-medium text-accent">Link #{idx + 1}</span>
-                  <button type="button" onClick={() => removeLink(idx)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+                  <button type="button" aria-label={`Hapus link kontak ${idx + 1}`} title="Hapus" onClick={() => removeLink(idx)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
                     <MdRemoveCircle size={18} />
                   </button>
                 </div>
@@ -1923,7 +2054,7 @@ function ContactConfigForm({
         </div>
 
       </div>
-    </form>
+    </AdminForm>
   );
 }
 

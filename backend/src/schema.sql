@@ -4,6 +4,28 @@ CREATE DATABASE IF NOT EXISTS `portfolio_v2`
 
 USE `portfolio_v2`;
 
+CREATE TABLE IF NOT EXISTS `admin_sessions` (
+  `token_hash` CHAR(64) PRIMARY KEY,
+  `expires_at` BIGINT NOT NULL,
+  INDEX `idx_admin_session_expiry` (`expires_at`)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `admin_login_attempts` (
+  `client_key` CHAR(64) PRIMARY KEY,
+  `attempts` INT NOT NULL DEFAULT 0,
+  `locked_until` BIGINT NOT NULL DEFAULT 0,
+  `updated_at` BIGINT NOT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `portfolio_write_lock` (`id` TINYINT PRIMARY KEY) ENGINE=InnoDB;
+INSERT IGNORE INTO `portfolio_write_lock` (`id`) VALUES (1);
+
+CREATE TABLE IF NOT EXISTS `portfolio_backups` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `data` LONGTEXT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS `profile` (
   `id` TINYINT UNSIGNED NOT NULL DEFAULT 1,
   `name` VARCHAR(180) NOT NULL,

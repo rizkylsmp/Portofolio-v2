@@ -13,7 +13,7 @@ export function createApp({ beforeRoutes } = {}) {
 
 export function configureApp(app, { beforeRoutes } = {}) {
 
-  app.set("trust proxy", true);
+  app.set("trust proxy", process.env.VERCEL ? 1 : false);
   app.use(corsMiddleware);
   app.use(express.json({ limit: "2mb" }));
   if (beforeRoutes) app.use(beforeRoutes);

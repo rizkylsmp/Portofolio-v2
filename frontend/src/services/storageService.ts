@@ -1,13 +1,14 @@
 // ==========================================
 // Portfolio Data Service
 // ==========================================
-// DB-only mode: GET /api/portfolio and PUT /api/admin/portfolio
+// DB-only mode: GET /api/portfolio and versioned PATCH /api/admin/portfolio
 // ==========================================
 
 import type { Experience, Project, Certificate, Profile, Skill, ContactConfig } from "../types/content";
 import { AxiosError } from "axios";
 import { apiClient, getApiErrorMessage, getApiErrorData } from "./apiClient";
 import { getSessionToken, logout } from "./authService";
+import { validatePortfolio } from "../validation/portfolio.js";
 
 interface PortfolioStore {
   profile: Profile | null;
@@ -97,6 +98,8 @@ function normalizeStore(rawData: PortfolioData): PortfolioStore {
 }
 
 const store: PortfolioStore = normalizeStore({});
+let committed = structuredClone(store);
+let versions: Partial<Record<PortfolioSection, string>> = {};
 
 function replaceStore(nextStore: PortfolioStore): void {
   store.profile = nextStore.profile;
@@ -105,6 +108,7 @@ function replaceStore(nextStore: PortfolioStore): void {
   store.projects = nextStore.projects;
   store.certificates = nextStore.certificates;
   store.contact = nextStore.contact;
+  committed = structuredClone(store);
 }
 
 function toPersistableData(): PortfolioData {
@@ -134,26 +138,29 @@ function toPersistableData(): PortfolioData {
 }
 
 export async function initializePortfolioData(): Promise<void> {
-  const { data } = await apiClient.get<PortfolioData>("/api/portfolio");
+  const { data } = await apiClient.get<PortfolioData & { _versions?: typeof versions }>("/api/portfolio");
   replaceStore(normalizeStore(data));
+  versions = data._versions || {};
 }
 
-async function persistToServer(sections: ReadonlySet<PortfolioSection>): Promise<void> {
+async function persistToServer(sections: ReadonlySet<PortfolioSection>, replaceConfirmed = false): Promise<void> {
   const data = toPersistableData();
   const patch = Object.fromEntries(
     [...sections].map((section) => [section, data[section]])
   ) as PortfolioData;
+  validatePortfolio(patch, true);
   const token = getSessionToken();
   if (!token) {
     throw new Error("Sesi admin tidak ditemukan. Silakan login ulang.");
   }
 
   try {
-    await apiClient.patch("/api/admin/portfolio", patch, {
+    const { data: response } = await apiClient.patch("/api/admin/portfolio", { ...patch, _versions: versions, _replaceConfirmed: replaceConfirmed }, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+    for (const section of sections) versions[section] = response._versions?.[section];
   } catch (err) {
     if (err instanceof AxiosError && err.response?.status === 401) {
       logout();
@@ -165,160 +172,150 @@ async function persistToServer(sections: ReadonlySet<PortfolioSection>): Promise
   }
 }
 
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
-let persistWaiters: Array<{ resolve: () => void; reject: (err: unknown) => void }> = [];
-const pendingSections = new Set<PortfolioSection>();
-
-function schedulePersist(section: PortfolioSection): Promise<void> {
-  pendingSections.add(section);
-  if (persistTimer) clearTimeout(persistTimer);
-  const promise = new Promise<void>((resolve, reject) => {
-    persistWaiters.push({ resolve, reject });
-  });
-
-  persistTimer = setTimeout(async () => {
-    const waiters = persistWaiters;
-    const sections = new Set(pendingSections);
-    persistWaiters = [];
-    pendingSections.clear();
-    persistTimer = null;
+let writeQueue: Promise<unknown> = Promise.resolve();
+function mutate<T>(sections: PortfolioSection[], operation: () => T, replaceConfirmed = false): Promise<T> {
+  const result = writeQueue.then(async () => {
+    const previous = structuredClone(committed);
     try {
-      await persistToServer(sections);
-      waiters.forEach((waiter) => waiter.resolve());
-    } catch (err) {
-      console.error("[storageService] Failed to persist data:", err);
-      waiters.forEach((waiter) => waiter.reject(err));
+      const value = operation();
+      await persistToServer(new Set(sections), replaceConfirmed);
+      committed = structuredClone(store);
+      return value;
+    } catch (error) {
+      replaceStore(previous);
+      throw error;
     }
-  }, 500);
-
-  return promise;
+  });
+  writeQueue = result.catch(() => undefined);
+  return result;
 }
 
 // ---- Profile (singleton) ----
 
 export function getProfile(): Profile | null {
-  return store.profile;
+  return committed.profile;
 }
 
 export function saveProfile(profile: Profile): Promise<void> {
-  store.profile = profile;
-  return schedulePersist("profile");
+  return mutate(["profile"], () => { store.profile = profile; });
 }
 
 // ---- Skills ----
 
 export function getSkills(): Skill[] {
-  return [...store.skills].sort((a, b) => a.order - b.order);
+  return [...committed.skills].sort((a, b) => a.order - b.order);
 }
 
 export function getSkill(id: string): Skill | undefined {
-  return store.skills.find((s) => s.id === id);
+  return committed.skills.find((s) => s.id === id);
 }
 
 export async function addSkill(data: Omit<Skill, "id">): Promise<Skill> {
   const newItem: Skill = { ...data, id: generateId() };
-  store.skills.push(newItem);
-  await schedulePersist("skills");
-  return newItem;
+  return mutate(["skills"], () => { store.skills.push(newItem); return newItem; });
 }
 
 export async function updateSkill(id: string, data: Partial<Omit<Skill, "id">>): Promise<Skill | null> {
-  const idx = store.skills.findIndex((s) => s.id === id);
-  if (idx === -1) return null;
-  store.skills[idx] = { ...store.skills[idx], ...data };
-  await schedulePersist("skills");
-  return store.skills[idx];
+  return mutate(["skills"], () => {
+    const idx = store.skills.findIndex((s) => s.id === id);
+    if (idx === -1) throw new Error("Skill tidak ditemukan. Muat ulang data terbaru.");
+    store.skills[idx] = { ...store.skills[idx], ...data };
+    return store.skills[idx];
+  });
 }
 
 export async function deleteSkill(id: string): Promise<boolean> {
-  const len = store.skills.length;
-  store.skills = store.skills.filter((s) => s.id !== id);
-  if (store.skills.length === len) return false;
-  await schedulePersist("skills");
-  return true;
+  return mutate(["skills"], () => {
+    const len = store.skills.length;
+    store.skills = store.skills.filter((s) => s.id !== id);
+    if (store.skills.length === len) return false;
+    return true;
+  });
 }
 
 export function reorderSkills(skills: Skill[]): Promise<void> {
-  store.skills = skills;
-  return schedulePersist("skills");
+  return mutate(["skills"], () => { store.skills = skills; });
 }
 
 // ---- Contact Config (singleton) ----
 
 export function getContactConfig(): ContactConfig | null {
-  return store.contact;
+  return committed.contact;
 }
 
 export function saveContactConfig(config: ContactConfig): Promise<void> {
-  store.contact = config;
-  return schedulePersist("contact");
+  return mutate(["contact"], () => { store.contact = config; });
 }
 
 // ---- Experiences ----
 
 export function getExperiences(): Experience[] {
-  return [...store.experiences].sort((a, b) => {
+  return [...committed.experiences].sort((a, b) => {
     const orderDelta = (a.order ?? 0) - (b.order ?? 0);
     return orderDelta || b.createdAt - a.createdAt;
   });
 }
 
 export function getExperience(id: string): Experience | undefined {
-  return store.experiences.find((e) => e.id === id);
+  return committed.experiences.find((e) => e.id === id);
 }
 
 export async function addExperience(
   data: Omit<Experience, "id" | "createdAt" | "updatedAt" | "order"> & Partial<Pick<Experience, "order">>
 ): Promise<Experience> {
-  const now = Date.now();
-  const maxOrder = store.experiences.reduce(
-    (max, item) => Math.max(max, item.order ?? -1),
-    -1
-  );
-  const newItem: Experience = {
-    ...data,
-    order: data.order ?? maxOrder + 1,
-    id: generateId(),
-    createdAt: now,
-    updatedAt: now,
-  };
-  store.experiences.push(newItem);
-  await schedulePersist("experiences");
-  return newItem;
+  return mutate(["experiences"], () => {
+    const now = Date.now();
+    const maxOrder = store.experiences.reduce(
+      (max, item) => Math.max(max, item.order ?? -1),
+      -1
+    );
+    const newItem: Experience = {
+      ...data,
+      order: data.order ?? maxOrder + 1,
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    store.experiences.push(newItem);
+    return newItem;
+  });
 }
 
 export async function updateExperience(
   id: string,
   data: Partial<Omit<Experience, "id" | "createdAt">>
 ): Promise<Experience | null> {
-  const idx = store.experiences.findIndex((e) => e.id === id);
-  if (idx === -1) return null;
-  store.experiences[idx] = { ...store.experiences[idx], ...data, updatedAt: Date.now() };
-  await schedulePersist("experiences");
-  return store.experiences[idx];
+  return mutate(["experiences"], () => {
+    const idx = store.experiences.findIndex((e) => e.id === id);
+    if (idx === -1) throw new Error("Experience tidak ditemukan. Muat ulang data terbaru.");
+    store.experiences[idx] = { ...store.experiences[idx], ...data, updatedAt: Date.now() };
+    return store.experiences[idx];
+  });
 }
 
 export async function deleteExperience(id: string): Promise<boolean> {
-  const len = store.experiences.length;
-  store.experiences = store.experiences.filter((e) => e.id !== id);
-  if (store.experiences.length === len) return false;
-  await schedulePersist("experiences");
-  return true;
+  return mutate(["experiences"], () => {
+    const len = store.experiences.length;
+    store.experiences = store.experiences.filter((e) => e.id !== id);
+    if (store.experiences.length === len) return false;
+    return true;
+  });
 }
 
 export function reorderExperiences(experiences: Experience[]): Promise<void> {
-  store.experiences = experiences.map((experience, index) => ({
-    ...experience,
-    order: index,
-    updatedAt: Date.now(),
-  }));
-  return schedulePersist("experiences");
+  return mutate(["experiences"], () => {
+    store.experiences = experiences.map((experience, index) => ({
+      ...experience,
+      order: index,
+      updatedAt: Date.now(),
+    }));
+  });
 }
 
 // ---- Projects ----
 
 export function getProjects(): Project[] {
-  return [...store.projects].sort((a, b) => {
+  return [...committed.projects].sort((a, b) => {
     const orderDelta = (a.order ?? 0) - (b.order ?? 0);
     return orderDelta || b.createdAt - a.createdAt;
   });
@@ -329,120 +326,127 @@ export function getProjectsByCategory(category: "website" | "game"): Project[] {
 }
 
 export function getProject(id: string): Project | undefined {
-  return store.projects.find((p) => p.id === id);
+  return committed.projects.find((p) => p.id === id);
 }
 
 export async function addProject(
   data: Omit<Project, "id" | "createdAt" | "updatedAt" | "order"> & Partial<Pick<Project, "order">>
 ): Promise<Project> {
-  const now = Date.now();
-  const maxOrder = store.projects
-    .filter((project) => project.category === data.category)
-    .reduce((max, project) => Math.max(max, project.order ?? -1), -1);
-  const newItem: Project = {
-    ...data,
-    order: data.order ?? maxOrder + 1,
-    id: generateId(),
-    createdAt: now,
-    updatedAt: now,
-  };
-  store.projects.push(newItem);
-  await schedulePersist("projects");
-  return newItem;
+  return mutate(["projects"], () => {
+    const now = Date.now();
+    const maxOrder = store.projects
+      .filter((project) => project.category === data.category)
+      .reduce((max, project) => Math.max(max, project.order ?? -1), -1);
+    const newItem: Project = {
+      ...data,
+      order: data.order ?? maxOrder + 1,
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    store.projects.push(newItem);
+    return newItem;
+  });
 }
 
 export async function updateProject(
   id: string,
   data: Partial<Omit<Project, "id" | "createdAt">>
 ): Promise<Project | null> {
-  const idx = store.projects.findIndex((p) => p.id === id);
-  if (idx === -1) return null;
-  const currentProject = store.projects[idx];
-  const nextCategory = data.category ?? currentProject.category;
-  const categoryChanged = nextCategory !== currentProject.category;
-  const nextOrder = categoryChanged
-    ? store.projects
-        .filter((project) => project.category === nextCategory)
-        .reduce((max, project) => Math.max(max, project.order ?? -1), -1) + 1
-    : data.order ?? currentProject.order;
+  return mutate(["projects"], () => {
+    const idx = store.projects.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error("Project tidak ditemukan. Muat ulang data terbaru.");
+    const currentProject = store.projects[idx];
+    const nextCategory = data.category ?? currentProject.category;
+    const categoryChanged = nextCategory !== currentProject.category;
+    const nextOrder = categoryChanged
+      ? store.projects
+          .filter((project) => project.category === nextCategory)
+          .reduce((max, project) => Math.max(max, project.order ?? -1), -1) + 1
+      : data.order ?? currentProject.order;
 
-  store.projects[idx] = {
-    ...currentProject,
-    ...data,
-    order: nextOrder,
-    updatedAt: Date.now(),
-  };
-  await schedulePersist("projects");
-  return store.projects[idx];
+    store.projects[idx] = {
+      ...currentProject,
+      ...data,
+      order: nextOrder,
+      updatedAt: Date.now(),
+    };
+    return store.projects[idx];
+  });
 }
 
 export async function deleteProject(id: string): Promise<boolean> {
-  const len = store.projects.length;
-  store.projects = store.projects.filter((p) => p.id !== id);
-  if (store.projects.length === len) return false;
-  await schedulePersist("projects");
-  return true;
+  return mutate(["projects"], () => {
+    const len = store.projects.length;
+    store.projects = store.projects.filter((p) => p.id !== id);
+    if (store.projects.length === len) return false;
+    return true;
+  });
 }
 
 export function reorderProjects(projects: Project[]): Promise<void> {
-  const categoryOrder = { website: 0, game: 0 };
-  store.projects = projects.map((project) => ({
-    ...project,
-    order: categoryOrder[project.category]++,
-    updatedAt: Date.now(),
-  }));
-  return schedulePersist("projects");
+  return mutate(["projects"], () => {
+    const categoryOrder = { website: 0, game: 0 };
+    store.projects = projects.map((project) => ({
+      ...project,
+      order: categoryOrder[project.category]++,
+      updatedAt: Date.now(),
+    }));
+  });
 }
 
 // ---- Certificates ----
 
 export function getCertificates(): Certificate[] {
-  return [...store.certificates].sort((a, b) => b.createdAt - a.createdAt);
+  return [...committed.certificates].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function getCertificate(id: string): Certificate | undefined {
-  return store.certificates.find((c) => c.id === id);
+  return committed.certificates.find((c) => c.id === id);
 }
 
 export async function addCertificate(
   data: Omit<Certificate, "id" | "createdAt" | "updatedAt">
 ): Promise<Certificate> {
-  const now = Date.now();
-  const newItem: Certificate = { ...data, id: generateId(), createdAt: now, updatedAt: now };
-  store.certificates.push(newItem);
-  await schedulePersist("certificates");
-  return newItem;
+  return mutate(["certificates"], () => {
+    const now = Date.now();
+    const newItem: Certificate = { ...data, id: generateId(), createdAt: now, updatedAt: now };
+    store.certificates.push(newItem);
+    return newItem;
+  });
 }
 
 export async function updateCertificate(
   id: string,
   data: Partial<Omit<Certificate, "id" | "createdAt">>
 ): Promise<Certificate | null> {
-  const idx = store.certificates.findIndex((c) => c.id === id);
-  if (idx === -1) return null;
-  store.certificates[idx] = { ...store.certificates[idx], ...data, updatedAt: Date.now() };
-  await schedulePersist("certificates");
-  return store.certificates[idx];
+  return mutate(["certificates"], () => {
+    const idx = store.certificates.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error("Certificate tidak ditemukan. Muat ulang data terbaru.");
+    store.certificates[idx] = { ...store.certificates[idx], ...data, updatedAt: Date.now() };
+    return store.certificates[idx];
+  });
 }
 
 export async function deleteCertificate(id: string): Promise<boolean> {
-  const len = store.certificates.length;
-  store.certificates = store.certificates.filter((c) => c.id !== id);
-  if (store.certificates.length === len) return false;
-  await schedulePersist("certificates");
-  return true;
+  return mutate(["certificates"], () => {
+    const len = store.certificates.length;
+    store.certificates = store.certificates.filter((c) => c.id !== id);
+    if (store.certificates.length === len) return false;
+    return true;
+  });
 }
 
 // ---- Export / Import ----
 
 export function exportAllData(): string {
   return JSON.stringify({
-    profile: store.profile,
-    skills: store.skills,
-    contact: store.contact,
-    experiences: store.experiences,
-    projects: store.projects,
-    certificates: store.certificates,
+    profile: committed.profile,
+    skills: committed.skills,
+    contact: committed.contact,
+    experiences: committed.experiences,
+    projects: committed.projects,
+    certificates: committed.certificates,
     exportedAt: new Date().toISOString(),
   }, null, 2);
 }
@@ -457,14 +461,9 @@ export async function importAllData(jsonString: string): Promise<boolean> {
     return false;
   }
 
-  replaceStore(normalizeStore(data as PortfolioData));
-  await Promise.all([
-    schedulePersist("profile"),
-    schedulePersist("skills"),
-    schedulePersist("experiences"),
-    schedulePersist("projects"),
-    schedulePersist("certificates"),
-    schedulePersist("contact"),
-  ]);
+  const validated = validatePortfolio(data) as PortfolioData;
+  await mutate(["profile", "skills", "experiences", "projects", "certificates", "contact"], () => {
+    Object.assign(store, normalizeStore(validated));
+  }, true);
   return true;
 }

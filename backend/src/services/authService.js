@@ -1,97 +1,55 @@
 import crypto from "node:crypto";
 import { config } from "../config/env.js";
-
-const sessions = new Map();
-const lockouts = new Map();
+import { getPool } from "../db/pool.js";
 
 export function isCredentialConfigured() {
   return config.adminPassword.length > 0 && /^\d{6}$/.test(config.adminPin);
 }
-
 export function validateCredentials(password, pin) {
-  return (
-    safeCompare(String(password || ""), config.adminPassword) &&
-    safeCompare(String(pin || ""), config.adminPin)
-  );
+  return safeCompare(String(password || ""), config.adminPassword) && safeCompare(String(pin || ""), config.adminPin);
 }
-
-export function getLockout(clientKey) {
-  const record = lockouts.get(clientKey);
-  if (!record) {
-    return { locked: false, remainingMs: 0, attemptsLeft: config.auth.maxAttempts };
-  }
-
-  if (record.lockedUntil && record.lockedUntil > Date.now()) {
-    return {
-      locked: true,
-      remainingMs: record.lockedUntil - Date.now(),
-      attemptsLeft: 0,
-    };
-  }
-
-  if (record.lockedUntil) lockouts.delete(clientKey);
-  const attempts = lockouts.get(clientKey)?.attempts || 0;
-  return {
-    locked: false,
-    remainingMs: 0,
-    attemptsLeft: config.auth.maxAttempts - attempts,
-  };
+export function hashAuthKey(value) {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
-
-export function recordFailedLogin(clientKey) {
-  const current = lockouts.get(clientKey) || { attempts: 0, lockedUntil: 0 };
-  const attempts = current.attempts + 1;
-
-  if (attempts >= config.auth.maxAttempts) {
-    lockouts.set(clientKey, {
-      attempts,
-      lockedUntil: Date.now() + config.auth.lockoutDurationMs,
-    });
-    return {
-      locked: true,
-      retryAfterMs: config.auth.lockoutDurationMs,
-      attemptsLeft: 0,
-    };
-  }
-
-  lockouts.set(clientKey, { attempts, lockedUntil: 0 });
-  return {
-    locked: false,
-    retryAfterMs: 0,
-    attemptsLeft: config.auth.maxAttempts - attempts,
-  };
+export async function getLockout(clientKey) {
+  const now = Date.now();
+  const pool = getPool();
+  const key = hashAuthKey(clientKey);
+  await pool.query("DELETE FROM admin_login_attempts WHERE locked_until <= ? AND updated_at <= ?", [now, now - config.auth.lockoutDurationMs]);
+  const [[record]] = await pool.query("SELECT attempts, locked_until FROM admin_login_attempts WHERE client_key = ?", [key]);
+  const remainingMs = Math.max(0, Number(record?.locked_until || 0) - now);
+  return { locked: remainingMs > 0, remainingMs, attemptsLeft: Math.max(0, config.auth.maxAttempts - Number(record?.attempts || 0)) };
 }
-
-export function clearFailedLogin(clientKey) {
-  lockouts.delete(clientKey);
+export async function recordFailedLogin(clientKey) {
+  const now = Date.now();
+  await getPool().query(`INSERT INTO admin_login_attempts (client_key, attempts, locked_until, updated_at)
+    VALUES (?, 1, 0, ?) ON DUPLICATE KEY UPDATE
+    attempts = IF(updated_at <= ? AND locked_until <= ?, 1, attempts + 1),
+    locked_until = IF(attempts >= ?, ?, locked_until), updated_at = ?`,
+  [hashAuthKey(clientKey), now, now - config.auth.lockoutDurationMs, now, config.auth.maxAttempts, now + config.auth.lockoutDurationMs, now]);
+  const lockout = await getLockout(clientKey);
+  return { locked: lockout.locked, retryAfterMs: lockout.remainingMs, attemptsLeft: lockout.attemptsLeft };
 }
-
-export function createSession() {
+export async function clearFailedLogin(clientKey) {
+  await getPool().query("DELETE FROM admin_login_attempts WHERE client_key = ?", [hashAuthKey(clientKey)]);
+}
+export async function createSession() {
   const token = crypto.randomBytes(32).toString("base64url");
-  sessions.set(token, Date.now() + config.auth.sessionTtlMs);
+  const pool = getPool();
+  await pool.query("DELETE FROM admin_sessions WHERE expires_at <= ?", [Date.now()]);
+  await pool.query("INSERT INTO admin_sessions (token_hash, expires_at) VALUES (?, ?)", [hashAuthKey(token), Date.now() + config.auth.sessionTtlMs]);
   return token;
 }
-
-export function deleteSession(token) {
-  if (token) sessions.delete(token);
+export async function deleteSession(token) {
+  if (token) await getPool().query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashAuthKey(token)]);
 }
-
-export function refreshSession(token) {
-  const expiresAt = token ? sessions.get(token) : 0;
-  if (!token || !expiresAt) return false;
-
-  if (expiresAt <= Date.now()) {
-    sessions.delete(token);
-    return false;
-  }
-
-  sessions.set(token, Date.now() + config.auth.sessionTtlMs);
-  return true;
+export async function refreshSession(token) {
+  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(token)) return false;
+  const [result] = await getPool().query("UPDATE admin_sessions SET expires_at = ? WHERE token_hash = ? AND expires_at > ?", [Date.now() + config.auth.sessionTtlMs, hashAuthKey(token), Date.now()]);
+  return result.affectedRows > 0;
 }
-
 function safeCompare(input, expected) {
   const a = Buffer.from(input);
   const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }

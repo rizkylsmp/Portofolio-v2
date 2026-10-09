@@ -3,6 +3,10 @@ export function notFoundApiHandler(_req, res) {
 }
 
 export function errorHandler(err, _req, res, _next) {
+  if (Number.isInteger(err?.status) && err.status >= 400 && err.status < 500) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
   if (err instanceof SyntaxError) {
     res.status(400).json({ error: "Payload JSON tidak valid." });
     return;

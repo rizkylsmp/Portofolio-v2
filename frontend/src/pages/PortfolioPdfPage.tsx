@@ -249,7 +249,7 @@ function PortfolioPdfPage() {
               </h1>
               <p
                 className="mt-0.5 text-base font-semibold text-slate-700"
-                dangerouslySetInnerHTML={{ __html: profile.position }}
+                dangerouslySetInnerHTML={{ __html: safeProfileHtml(profile.position) }}
               />
               <p className="mt-2 text-xs leading-[1.65] text-slate-700">{profile.description}</p>
             </div>
@@ -460,3 +460,4 @@ function PortfolioPdfPage() {
 }
 
 export default PortfolioPdfPage;
+import { safeProfileHtml } from "../utils/profileHtml";

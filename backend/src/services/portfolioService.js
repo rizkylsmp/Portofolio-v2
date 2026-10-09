@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import crypto from "node:crypto";
+import { validatePortfolio, portfolioSections } from "../validation/portfolio.js";
 import bundledPortfolioSeedData from "../seeds/portfolioData.json" with { type: "json" };
 import { config } from "../config/env.js";
 import { getPool } from "../db/pool.js";
@@ -20,19 +22,10 @@ const PARENT_DELETE_ORDER = ["profile", "skills", "experiences", "projects", "ce
 let portfolioWriteQueue = Promise.resolve();
 
 export async function readPortfolioData() {
-  const data = await readStoredPortfolioData();
-
-  if (isEmptyPortfolioData(data)) {
-    const seedData = await readInitialPortfolioData();
-    await writePortfolioData(seedData);
-    return seedData;
-  }
-
-  return data;
+  return readStoredPortfolioData();
 }
 
-async function readStoredPortfolioData() {
-  const pool = getPool();
+async function readStoredPortfolioData(pool = getPool()) {
   const [
     [profileRows],
     [socialRows],
@@ -100,27 +93,29 @@ export async function readInitialPortfolioData() {
   return (await readNormalizedLegacyData()) || (await readJsonLegacyData()) || (await readPortfolioSeedData());
 }
 
-export function writePortfolioData(data) {
-  if (!isValidPortfolioData(data)) {
-    return Promise.reject(new Error("Portfolio data tidak lengkap atau tidak valid."));
-  }
-
-  return enqueuePortfolioWrite(async () => {
-    const currentData = await readStoredPortfolioData();
-    return writePortfolioDataSafely(currentData, data);
-  });
+export function writePortfolioData(data, { onlyIfEmpty = false } = {}) {
+  try { data = validatePortfolio(data); } catch (error) { return Promise.reject(error); }
+  return enqueuePortfolioWrite(() => writePortfolioDataWithRetry(data, 3, undefined, portfolioSections, false, onlyIfEmpty));
 }
 
 export function patchPortfolioData(patch) {
-  if (!isValidPortfolioPatch(patch)) {
-    return Promise.reject(new Error("Perubahan portfolio tidak valid."));
-  }
+  const { _versions, _replaceConfirmed = false, ...changes } = patch || {};
+  let data;
+  try { data = validatePortfolio(changes, true); } catch (error) { return Promise.reject(error); }
+  const sections = Object.keys(data);
+  const confirmed = _replaceConfirmed === true && sections.length === portfolioSections.length;
+  return enqueuePortfolioWrite(() => writePortfolioDataWithRetry(data, 3, _versions, sections, confirmed));
+}
 
-  return enqueuePortfolioWrite(async () => {
-    const currentData = await readStoredPortfolioData();
-    const nextData = { ...currentData, ...patch };
-    return writePortfolioDataSafely(currentData, nextData);
-  });
+export function portfolioVersions(data) {
+  return Object.fromEntries(portfolioSections.map((section) => [section, crypto.createHash("sha256").update(JSON.stringify(data[section])).digest("hex")]));
+}
+
+export function assertPortfolioVersions(current, expected, sections) {
+  const versions = portfolioVersions(current);
+  if (sections.some((section) => expected?.[section] !== versions[section])) {
+    throw Object.assign(new Error("Data sudah berubah di tab/perangkat lain. Draft form tetap tersedia. Catat perubahan lalu muat ulang data terbaru sebelum menyimpan."), { status: 409 });
+  }
 }
 
 function enqueuePortfolioWrite(operation) {
@@ -129,57 +124,68 @@ function enqueuePortfolioWrite(operation) {
   return result;
 }
 
-async function writePortfolioDataSafely(currentData, nextData) {
-  await backupPortfolioData(currentData);
-  assertNoUnexpectedBulkDeletion(currentData, nextData);
-
-  return writePortfolioDataWithRetry(nextData);
-}
-
-async function writePortfolioDataWithRetry(data, attemptsLeft = 3) {
+async function writePortfolioDataWithRetry(data, attemptsLeft = 3, versions, sections = portfolioSections, confirmed = false, onlyIfEmpty = false) {
   try {
-    return await writePortfolioDataOnce(data);
+    return await writePortfolioDataOnce(data, versions, sections, confirmed, onlyIfEmpty);
   } catch (err) {
     if (attemptsLeft > 1 && isRetryableMysqlError(err)) {
       await wait(75);
-      return writePortfolioDataWithRetry(data, attemptsLeft - 1);
+      return writePortfolioDataWithRetry(data, attemptsLeft - 1, versions, sections, confirmed, onlyIfEmpty);
     }
 
     throw err;
   }
 }
 
-async function writePortfolioDataOnce(data) {
+async function writePortfolioDataOnce(patch, versions, sections, confirmed, onlyIfEmpty) {
   const pool = getPool();
   const connection = await pool.getConnection();
 
   try {
     await connection.beginTransaction();
-    await clearTables(connection);
+    await connection.query("SELECT id FROM portfolio_write_lock WHERE id = 1 FOR UPDATE");
+    const currentData = await readStoredPortfolioData(connection);
+    if (onlyIfEmpty) {
+      const [[backups]] = await connection.query("SELECT COUNT(*) AS count FROM portfolio_backups");
+      if (!isEmptyPortfolioData(currentData) || Number(backups.count) > 0) {
+        await connection.commit();
+        return { _versions: portfolioVersions(currentData) };
+      }
+    }
+    if (versions !== undefined || sections !== portfolioSections) assertPortfolioVersions(currentData, versions, sections);
+    const data = { ...currentData, ...patch };
+    if (!confirmed) assertNoUnexpectedBulkDeletion(currentData, data);
+    if (!isEmptyPortfolioData(currentData)) {
+      await connection.query("INSERT INTO portfolio_backups (data) VALUES (?)", [JSON.stringify(currentData)]);
+      await connection.query("DELETE FROM portfolio_backups WHERE id NOT IN (SELECT id FROM (SELECT id FROM portfolio_backups ORDER BY id DESC LIMIT 30) AS retained)");
+    }
+    await clearTables(connection, sections);
 
-    if (data.profile) await insertProfile(connection, data.profile);
-    if (data.contact) await insertContact(connection, data.contact);
+    if (sections.includes("profile") && data.profile) await insertProfile(connection, data.profile);
+    if (sections.includes("contact") && data.contact) await insertContact(connection, data.contact);
 
-    for (const [index, skill] of (data.skills || []).entries()) {
+    for (const [index, skill] of (sections.includes("skills") ? data.skills : []).entries()) {
       await connection.query(
         "INSERT INTO skills (name, src, alt, sort_order) VALUES (?, ?, ?, ?)",
         [skill.name || "", skill.src || "", skill.alt || "", Number(skill.order ?? index)]
       );
     }
 
-    for (const [index, experience] of (data.experiences || []).entries()) {
+    for (const [index, experience] of (sections.includes("experiences") ? data.experiences : []).entries()) {
       await insertExperience(connection, experience, index);
     }
 
-    for (const [index, project] of (data.projects || []).entries()) {
+    for (const [index, project] of (sections.includes("projects") ? data.projects : []).entries()) {
       await insertProject(connection, project, index);
     }
 
-    for (const [index, certificate] of (data.certificates || []).entries()) {
+    for (const [index, certificate] of (sections.includes("certificates") ? data.certificates : []).entries()) {
       await insertCertificate(connection, certificate, index);
     }
 
+    const saved = await readStoredPortfolioData(connection);
     await connection.commit();
+    return { _versions: portfolioVersions(saved) };
   } catch (err) {
     await connection.rollback();
     throw err;
@@ -188,12 +194,15 @@ async function writePortfolioDataOnce(data) {
   }
 }
 
-async function clearTables(connection) {
+async function clearTables(connection, sections) {
+  const childSections = { profile_social_media: "profile", experience_responsibilities: "experiences", experience_skills: "experiences", experience_images: "experiences", project_images: "projects", project_tech_icons: "projects", certificate_images: "certificates", contact_links: "contact" };
   for (const tableName of CHILD_DELETE_ORDER) {
+    if (!sections.includes(childSections[tableName])) continue;
     await connection.query(`DELETE FROM ${tableName}`);
   }
 
   for (const tableName of PARENT_DELETE_ORDER) {
+    if (!sections.includes(tableName)) continue;
     await connection.query(`DELETE FROM ${tableName}`);
   }
 }
@@ -532,46 +541,6 @@ function wait(ms) {
   });
 }
 
-function isValidPortfolioData(data) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
-
-  const requiredKeys = ["profile", "skills", "experiences", "projects", "certificates", "contact"];
-  if (!requiredKeys.every((key) => Object.hasOwn(data, key))) return false;
-
-  return (
-    Array.isArray(data.skills) &&
-    Array.isArray(data.experiences) &&
-    Array.isArray(data.projects) &&
-    Array.isArray(data.certificates) &&
-    (data.profile === null || typeof data.profile === "object") &&
-    (data.contact === null || typeof data.contact === "object")
-  );
-}
-
-function isValidPortfolioPatch(data) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
-
-  const allowedKeys = new Set([
-    "profile",
-    "skills",
-    "experiences",
-    "projects",
-    "certificates",
-    "contact",
-  ]);
-  const keys = Object.keys(data);
-  if (keys.length === 0 || keys.some((key) => !allowedKeys.has(key))) return false;
-
-  return (
-    (!Object.hasOwn(data, "skills") || Array.isArray(data.skills)) &&
-    (!Object.hasOwn(data, "experiences") || Array.isArray(data.experiences)) &&
-    (!Object.hasOwn(data, "projects") || Array.isArray(data.projects)) &&
-    (!Object.hasOwn(data, "certificates") || Array.isArray(data.certificates)) &&
-    (!Object.hasOwn(data, "profile") || data.profile === null || typeof data.profile === "object") &&
-    (!Object.hasOwn(data, "contact") || data.contact === null || typeof data.contact === "object")
-  );
-}
-
 export function getPortfolioBackupDirectory(backendDir = config.backendDir, env = process.env) {
   const deployedPath = backendDir.replace(/\\/g, "/");
   const serverless = env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME || env.LAMBDA_TASK_ROOT ||
@@ -617,11 +586,11 @@ function assertNoUnexpectedBulkDeletion(currentData, nextData) {
     .map(([name]) => name);
 
   if (clearedSections.length > 1) {
-    throw new Error(
+    throw Object.assign(new Error(
       `Penyimpanan dibatalkan karena akan mengosongkan beberapa bagian sekaligus: ${clearedSections.join(
         ", "
-      )}. Muat ulang halaman admin lalu coba lagi.`
-    );
+      )}. Konfirmasi penggantian seluruh data melalui Import diperlukan.`
+    ), { status: 400 });
   }
 }
 
