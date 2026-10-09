@@ -5,7 +5,7 @@
   "outputDirectory": null,
   "functions": {
     "src/app.js": {
-      "includeFiles": ["src/seeds/portfolioData.json"]
+      "includeFiles": "src/seeds/portfolioData.json"
     }
   }
 }
