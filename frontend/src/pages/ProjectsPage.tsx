@@ -14,24 +14,37 @@ type PreviewState = {
   imageIndex: number;
 };
 
+async function prepareGalleryImage(src: string) {
+  const image = new Image();
+  image.src = src;
+  await image.decode();
+}
+
 const ProjectsPage = () => {
   const [filter, setFilter] = React.useState<string | null>(null);
   const [kind, setKind] = React.useState<PlaygroundProject["kind"] | null>(null);
   const [niche, setNiche] = React.useState("");
   const [gridColumns, setGridColumns] = React.useState<GridColumns>(5);
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
+  const [previousPreviewImage, setPreviousPreviewImage] = React.useState<string | null>(null);
   const [cardImageIndexes, setCardImageIndexes] = React.useState<Record<string, number>>({});
   const gridRef = React.useRef<HTMLDivElement>(null);
   const oldPositions = React.useRef(new Map<string, DOMRect>());
   const cardAnimations = React.useRef<Array<ReturnType<typeof animate>>>([]);
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const previewImageRef = React.useRef<HTMLImageElement>(null);
+  const previousImageRef = React.useRef<HTMLImageElement>(null);
+  const previewStateRef = React.useRef(preview);
+  const slideRequest = React.useRef(0);
+  const slidePending = React.useRef(false);
+  const pendingCardSlides = React.useRef(new Set<string>());
   const sourceRef = React.useRef<HTMLButtonElement | null>(null);
   const sourceBounds = React.useRef<DOMRect | null>(null);
   const opening = React.useRef(false);
   const closing = React.useRef(false);
   const zoomAnimation = React.useRef<ReturnType<typeof animate> | null>(null);
   const overlayAnimation = React.useRef<ReturnType<typeof animate> | null>(null);
+  const outgoingAnimation = React.useRef<ReturnType<typeof animate> | null>(null);
   const filterExit = React.useRef<ReturnType<typeof animate> | null>(null);
   const slideDirection = React.useRef<-1 | 0 | 1>(0);
   const { projects, loading, error, retry } = usePlaygroundProjects();
@@ -49,6 +62,8 @@ const ProjectsPage = () => {
   }[gridColumns];
   const projectKey = visibleProjects.map((project) => project.id).join(",");
   const previewOpen = preview !== null;
+
+  React.useLayoutEffect(() => { previewStateRef.current = preview; }, [preview]);
 
   React.useEffect(() => {
     if (!preview || preview.project.images.length < 2) return;
@@ -105,6 +120,10 @@ const ProjectsPage = () => {
   const closePreview = React.useCallback(() => {
     if (closing.current) return;
     closing.current = true;
+    slideRequest.current += 1;
+    slidePending.current = false;
+    outgoingAnimation.current?.revert();
+    setPreviousPreviewImage(null);
     zoomAnimation.current?.revert();
     const image = previewImageRef.current;
     const target = sourceRef.current?.getBoundingClientRect();
@@ -137,21 +156,55 @@ const ProjectsPage = () => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       image.style.opacity = "1";
       opening.current = false;
+      slidePending.current = false;
+      setPreviousPreviewImage(null);
       return;
     }
     const bounds = image.getBoundingClientRect();
     const origin = opening.current ? sourceBounds.current : null;
     opening.current = false;
+    outgoingAnimation.current?.revert();
+    if (previousImageRef.current) outgoingAnimation.current = animate(previousImageRef.current, {
+      translateX: [0, -slideDirection.current * 48], opacity: [1, 0], duration: 280, ease: "inOutSine",
+    });
     zoomAnimation.current = animate(image, {
-      translateX: [origin ? origin.left + origin.width / 2 - bounds.left - bounds.width / 2 : slideDirection.current * Math.min(bounds.width * 0.25, 180), 0],
+      translateX: [origin ? origin.left + origin.width / 2 - bounds.left - bounds.width / 2 : slideDirection.current * 48, 0],
       translateY: [origin ? origin.top + origin.height / 2 - bounds.top - bounds.height / 2 : 0, 0],
       scaleX: [origin ? origin.width / Math.max(bounds.width, 1) : 1, 1],
       scaleY: [origin ? origin.height / Math.max(bounds.height, 1) : 1, 1],
       opacity: [0, 1],
-      duration: origin ? 440 : 200,
-      ease: "out(3)",
+      duration: origin ? 440 : 280,
+      ease: origin ? "out(3)" : "inOutSine",
+      onComplete: () => { slidePending.current = false; setPreviousPreviewImage(null); },
     });
   };
+
+  const changePreviewImage = React.useCallback(async (direction: -1 | 1) => {
+    const current = previewStateRef.current;
+    if (closing.current || slidePending.current || !current || current.project.images.length < 2) return;
+    slidePending.current = true;
+    const request = ++slideRequest.current;
+    const imageIndex = (current.imageIndex + direction + current.project.images.length) % current.project.images.length;
+    try {
+      await prepareGalleryImage(current.project.images[imageIndex]);
+      if (request !== slideRequest.current) return;
+      if (current.project.images[imageIndex] === current.project.images[current.imageIndex]) {
+        slidePending.current = false;
+        setPreview({ ...current, imageIndex });
+        return;
+      }
+      slideDirection.current = direction;
+      setPreviousPreviewImage(current.project.images[current.imageIndex]);
+      setPreview({ ...current, imageIndex });
+    } catch {
+      if (request !== slideRequest.current) return;
+      slidePending.current = false;
+      if (previewImageRef.current) {
+        previewImageRef.current.style.transform = "";
+        previewImageRef.current.style.opacity = "1";
+      }
+    }
+  }, []);
 
   React.useEffect(() => {
     if (!previewOpen) return;
@@ -176,18 +229,12 @@ const ProjectsPage = () => {
         if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }
       if (event.key === "ArrowLeft") {
-        slideDirection.current = -1;
-        setPreview((current) => current ? {
-          ...current,
-          imageIndex: (current.imageIndex - 1 + current.project.images.length) % current.project.images.length,
-        } : null);
+        event.preventDefault();
+        void changePreviewImage(-1);
       }
       if (event.key === "ArrowRight") {
-        slideDirection.current = 1;
-        setPreview((current) => current ? {
-          ...current,
-          imageIndex: (current.imageIndex + 1) % current.project.images.length,
-        } : null);
+        event.preventDefault();
+        void changePreviewImage(1);
       }
     };
 
@@ -198,32 +245,31 @@ const ProjectsPage = () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
       zoomAnimation.current?.revert();
+      outgoingAnimation.current?.revert();
+      slideRequest.current += 1;
+      slidePending.current = false;
       overlayAnimation.current?.revert();
       sourceRef.current?.focus({ preventScroll: true });
     };
-  }, [previewOpen, closePreview]);
+  }, [previewOpen, closePreview, changePreviewImage]);
 
-  const changePreviewImage = (direction: -1 | 1) => {
-    if (closing.current) return;
-    slideDirection.current = direction;
-    setPreview((current) => {
-      if (!current || current.project.images.length < 2) return current;
-      return {
-        ...current,
-        imageIndex: (current.imageIndex + direction + current.project.images.length) % current.project.images.length,
-      };
-    });
-  };
-  const swipe = useImageSwipe(previewImageRef, changePreviewImage, Boolean(preview && preview.project.images.length > 1), () => zoomAnimation.current?.pause());
+  const swipe = useImageSwipe(previewImageRef, changePreviewImage, Boolean(preview && preview.project.images.length > 1), () => {
+    outgoingAnimation.current?.complete();
+    zoomAnimation.current?.complete();
+  }, false);
 
-  const changeCardImage = (projectId: string, imageCount: number, direction: -1 | 1) => {
-    setCardImageIndexes((current) => {
-      const activeIndex = current[projectId] ?? 0;
-      return {
-        ...current,
-        [projectId]: (activeIndex + direction + imageCount) % imageCount,
-      };
-    });
+  const changeCardImage = async (project: PlaygroundProject, activeIndex: number, direction: -1 | 1) => {
+    if (pendingCardSlides.current.has(project.id)) return;
+    pendingCardSlides.current.add(project.id);
+    const nextIndex = (activeIndex + direction + project.images.length) % project.images.length;
+    try {
+      await prepareGalleryImage(project.images[nextIndex]);
+      setCardImageIndexes((current) => ({ ...current, [project.id]: nextIndex }));
+    } catch {
+      // Keep the current image visible if its replacement could not load.
+    } finally {
+      pendingCardSlides.current.delete(project.id);
+    }
   };
 
   return (
@@ -373,13 +419,13 @@ const ProjectsPage = () => {
                         className="absolute left-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/65 text-2xl text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                         onClick={(event) => {
                           event.stopPropagation();
-                          changeCardImage(project.id, project.images.length, -1);
+                          void changeCardImage(project, activeImageIndex, -1);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             event.stopPropagation();
-                            changeCardImage(project.id, project.images.length, -1);
+                            void changeCardImage(project, activeImageIndex, -1);
                           }
                         }}
                         aria-label="Foto sebelumnya"
@@ -393,13 +439,13 @@ const ProjectsPage = () => {
                         className="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/65 text-2xl text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                         onClick={(event) => {
                           event.stopPropagation();
-                          changeCardImage(project.id, project.images.length, 1);
+                          void changeCardImage(project, activeImageIndex, 1);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             event.stopPropagation();
-                            changeCardImage(project.id, project.images.length, 1);
+                            void changeCardImage(project, activeImageIndex, 1);
                           }
                         }}
                         aria-label="Foto berikutnya"
@@ -448,7 +494,7 @@ const ProjectsPage = () => {
           aria-modal="true"
           aria-label={`Galeri ${preview.project.title}`}
         >
-          <div className="max-h-[94vh] w-full max-w-[76rem] overflow-y-auto bg-surface text-text-primary" onClick={(event) => event.stopPropagation()}>
+          <div className="max-h-[94dvh] w-full min-w-0 max-w-[76rem] overflow-x-hidden overflow-y-auto overscroll-contain bg-surface text-text-primary" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-8 p-4 sm:px-5">
               <div>
                 <span className="font-mono text-[0.62rem] uppercase tracking-[0.08em] text-text-tertiary">{playgroundKindLabels[preview.project.kind]} / {preview.project.category}{preview.project.niche ? ` / ${preview.project.niche}` : ""}</span>
@@ -459,24 +505,33 @@ const ProjectsPage = () => {
               </button>
             </div>
 
-            <div className="relative grid min-h-[min(62vh,42rem)] place-items-center bg-[#090909]">
+            <div className="relative grid h-[min(62dvh,42rem)] min-w-0 place-items-center overflow-hidden bg-[#090909]">
+              {previousPreviewImage && (
+                <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden="true">
+                  <img ref={previousImageRef} src={previousPreviewImage} alt="" className="block max-h-[min(62dvh,42rem)] max-w-full object-contain" />
+                </div>
+              )}
               <img
                 ref={previewImageRef}
                 {...swipe}
                 draggable={false}
                 key={preview.project.images[preview.imageIndex]}
                 onLoad={animatePreviewImage}
-                onError={() => { if (previewImageRef.current) previewImageRef.current.style.opacity = "1"; }}
+                onError={() => {
+                  slidePending.current = false;
+                  setPreviousPreviewImage(null);
+                  if (previewImageRef.current) previewImageRef.current.style.opacity = "1";
+                }}
                 style={{ opacity: 0, transformOrigin: "center", touchAction: "pan-y", cursor: "grab" }}
                 src={preview.project.images[preview.imageIndex]}
-                alt={`${preview.project.title} ${preview.imageIndex + 1}`} className="max-h-[68vh] max-w-full object-contain"
+                alt={`${preview.project.title} ${preview.imageIndex + 1}`} className="relative block max-h-[min(62dvh,42rem)] max-w-full object-contain"
               />
               {preview.project.images.length > 1 && (
                 <>
-                  <button type="button" className="absolute left-3 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center bg-black/65 text-3xl text-white" onClick={() => changePreviewImage(-1)} aria-label="Gambar sebelumnya">
+                  <button type="button" data-no-press-scale className="absolute left-3 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center bg-black/65 text-3xl text-white" onClick={() => { void changePreviewImage(-1); }} aria-label="Gambar sebelumnya">
                     <MdChevronLeft />
                   </button>
-                  <button type="button" className="absolute right-3 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center bg-black/65 text-3xl text-white" onClick={() => changePreviewImage(1)} aria-label="Gambar berikutnya">
+                  <button type="button" data-no-press-scale className="absolute right-3 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center bg-black/65 text-3xl text-white" onClick={() => { void changePreviewImage(1); }} aria-label="Gambar berikutnya">
                     <MdChevronRight />
                   </button>
                 </>

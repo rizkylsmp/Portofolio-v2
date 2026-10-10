@@ -7,6 +7,7 @@ export function useImageSwipe(
   change: (direction: -1 | 1) => void,
   enabled: boolean,
   interrupt?: () => void,
+  animateExit = true,
 ) {
   const gesture = useRef<{ id: number; x: number; y: number; dx: number; time: number } | null>(null);
   const animation = useRef<ReturnType<typeof animate> | null>(null);
@@ -52,7 +53,7 @@ export function useImageSwipe(
       const velocity = Math.abs(start.dx) / Math.max(performance.now() - start.time, 1);
       if (Math.abs(start.dx) >= threshold || (Math.abs(start.dx) > 18 && velocity > 0.45)) {
         const direction = start.dx < 0 ? 1 : -1;
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        if (!animateExit || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
           event.currentTarget.style.transform = "";
           change(direction);
         } else animation.current = animate(event.currentTarget, {
